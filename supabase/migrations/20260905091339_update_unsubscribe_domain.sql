@@ -19,7 +19,7 @@ begin
     execute replace(
       function_row.definition,
       'https://slow-studio-demo.vercel.app/unsubscribe?token=',
-      'https://shizukulab.vercel.app/unsubscribe?token='
+      'https://byslowstudio.vercel.app/unsubscribe?token='
     );
   end loop;
 end

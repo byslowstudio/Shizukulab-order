@@ -109,7 +109,7 @@ grant execute on function public.record_shizuku_stock_purchase(uuid,text,numeric
 
 create or replace function public.send_shizuku_order_email()
 returns trigger language plpgsql security definer set search_path='public','extensions' as $$
-declare settings record; alert_event text; items jsonb; send_owner boolean:=false; send_customer boolean:=false; base_url text:='https://shizukulab.vercel.app/unsubscribe?token=';
+declare settings record; alert_event text; items jsonb; send_owner boolean:=false; send_customer boolean:=false; base_url text:='https://byslowstudio.vercel.app/unsubscribe?token=';
 begin
   select * into settings from public.notification_settings where id=1;
   if not found or nullif(trim(coalesce(settings.webhook_url,'')),'') is null then return new; end if;
@@ -137,7 +137,7 @@ begin
   if not found then raise exception 'Customer is not subscribed to email'; end if;
   select marketing_email_subject,marketing_email_body,marketing_attachment_url,marketing_attachment_name,marketing_attachment_type into s from public.store_settings order by created_at limit 1;
   select webhook_url into n from public.notification_settings where id=1;
-  select net.http_post(url:=n.webhook_url,headers:=jsonb_build_object('Content-Type','application/json'),body:=jsonb_build_object('event','marketing_campaign','send_owner',false,'customer_email',c.customer_email,'customer_name',c.customer_name,'market_code',market,'marketing_email_subject',s.marketing_email_subject,'marketing_email_body',s.marketing_email_body,'attachment_url',s.marketing_attachment_url,'attachment_name',s.marketing_attachment_name,'attachment_type',s.marketing_attachment_type,'unsubscribe_url','https://shizukulab.vercel.app/unsubscribe?token='||c.email_unsubscribe_token::text)) into request_id;
+  select net.http_post(url:=n.webhook_url,headers:=jsonb_build_object('Content-Type','application/json'),body:=jsonb_build_object('event','marketing_campaign','send_owner',false,'customer_email',c.customer_email,'customer_name',c.customer_name,'market_code',market,'marketing_email_subject',s.marketing_email_subject,'marketing_email_body',s.marketing_email_body,'attachment_url',s.marketing_attachment_url,'attachment_name',s.marketing_attachment_name,'attachment_type',s.marketing_attachment_type,'unsubscribe_url','https://byslowstudio.vercel.app/unsubscribe?token='||c.email_unsubscribe_token::text)) into request_id;
   return jsonb_build_object('ok',true,'queued',true,'request_id',request_id);
 end $$;
 revoke all on function public.send_marketing_campaign_email(text,text) from public,anon;
@@ -155,7 +155,7 @@ begin
   select * into n from public.notification_settings where id=1;
   if not coalesce(n.customer_email_enabled,false) or coalesce(trim(n.webhook_url),'')='' then raise exception 'Customer email is not enabled or the Web app URL is missing.'; end if;
   select coalesce(jsonb_agg(jsonb_build_object('product_name',product_name,'quantity',quantity,'unit_price',unit_price,'options',options) order by id),'[]'::jsonb) into items from public.order_items where order_id=o.id;
-  select net.http_post(url:=n.webhook_url,headers:=jsonb_build_object('Content-Type','application/json'),body:=jsonb_build_object('event','order_confirmed','send_owner',false,'send_customer',true,'recipient_email',n.recipient_email,'customer_email',o.customer_email,'customer_email_subject_template',n.customer_email_subject_template,'customer_email_heading_template',n.customer_email_heading_template,'customer_email_message_template',n.customer_email_message_template,'unsubscribe_url','https://shizukulab.vercel.app/unsubscribe?token='||o.email_unsubscribe_token::text,'order',to_jsonb(o),'items',items)) into req;
+  select net.http_post(url:=n.webhook_url,headers:=jsonb_build_object('Content-Type','application/json'),body:=jsonb_build_object('event','order_confirmed','send_owner',false,'send_customer',true,'recipient_email',n.recipient_email,'customer_email',o.customer_email,'customer_email_subject_template',n.customer_email_subject_template,'customer_email_heading_template',n.customer_email_heading_template,'customer_email_message_template',n.customer_email_message_template,'unsubscribe_url','https://byslowstudio.vercel.app/unsubscribe?token='||o.email_unsubscribe_token::text,'order',to_jsonb(o),'items',items)) into req;
   update public.orders set customer_confirmation_email_sent_at=now() where id=o.id;
   return jsonb_build_object('ok',true,'request_id',req);
 end $$;
