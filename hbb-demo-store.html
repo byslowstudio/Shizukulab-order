@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="/">
+  <title>Mori Bakehouse · Demo shop</title>
+  <link rel="stylesheet" href="hbb-demo.css?v=1">
+</head>
+<body class="demo-store-body">
+  <div id="demoStore"></div>
+  <script src="hbb-demo-v4.js?v=1"></script>
+  <script>
+    if (new URLSearchParams(location.search).get("market") === "MY" || /\/demo\/malaysia(?:\/|$)/i.test(location.pathname)) {
+      document.title = "Malaysia HBB · Demo shop";
+      document.querySelectorAll('a[href="hbb-demo.html"]').forEach((link) => link.href = "/demo/malaysia");
+    }
+  </script>
+</body>
+</html>

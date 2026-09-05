@@ -1,0 +1,48 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/", "destination": "/slow-studio.html" },
+    { "source": "/unsubscribe", "destination": "/unsubscribe.html" },
+    { "source": "/slow-studio", "destination": "/slow-studio.html" },
+    { "source": "/shop/shizuku-lab-sg", "destination": "/order.html" },
+    { "source": "/shop/shizuku-lab-my", "destination": "/order.html?market=MY" },
+    { "source": "/workspace/shizuku-lab-sg", "destination": "/admin.html" },
+    { "source": "/workspace/shizuku-lab-my", "destination": "/admin.html?market=MY" },
+    { "source": "/demo", "destination": "/demo-admin.html?market=SG" },
+    { "source": "/demo/shop", "destination": "/hbb-demo-store.html?market=SG" },
+    { "source": "/demo/singapore", "destination": "/demo-admin.html?market=SG" },
+    { "source": "/demo/malaysia", "destination": "/demo-admin.html?market=MY" },
+    { "source": "/demo/singapore/shop", "destination": "/hbb-demo-store.html?market=SG" },
+    { "source": "/demo/malaysia/shop", "destination": "/hbb-demo-store.html?market=MY" }
+  ],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/(index|order|admin).html",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/slow-studio",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/shop/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/workspace/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/demo/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/(app|admin|style).(js|css)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }]
+    }
+  ]
+}

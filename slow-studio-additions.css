@@ -1,0 +1,85 @@
+.ss-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.ss-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.6);
+}
+
+.ss-mark {
+  background: #fff;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.ss-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.65);
+}
+
+.ss-pill.pending {
+  background: #fff2d9;
+  color: #8a5d1d;
+}
+
+.ss-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ss-dialog-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ss-dialog-title p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.ss-close {
+  border: 0;
+  background: #f2f3f0;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ss-invite-note {
+  margin-top: 15px;
+  border: 1px solid #dce7df;
+  background: #f3f8f4;
+  border-radius: 12px;
+  padding: 13px;
+  color: #4d5c52;
+}
+
+.ss-card-head > .ss-btn { flex: none; }
+
+.ss-workspace-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+}
+
+@media (max-width: 760px) {
+  .ss-card-head { align-items: flex-start; }
+}
