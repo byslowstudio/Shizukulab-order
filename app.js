@@ -2096,7 +2096,8 @@ function applyCmsWording() {
     const box = document.createElement("div");
     box.className = "summary-card";
     box.style.marginTop = "16px";
-    box.innerHTML = `<b>Payment is not completed yet</b><div class="hint" style="text-align:left;margin:8px 0 14px;">Continue to PayNow and upload your payment screenshot.</div><button class="primary-btn" onclick="continueTrackedPayment()">Continue payment</button>`;
+    const trackedPaymentName = (state.tracking.order?.market_code || state.market) === "MY" ? "Touch 'n Go or bank transfer" : "PayNow";
+    box.innerHTML = `<b>Payment is not completed yet</b><div class="hint" style="text-align:left;margin:8px 0 14px;">Continue to ${escapeHtml(trackedPaymentName)} and upload your payment screenshot.</div><button class="primary-btn" onclick="continueTrackedPayment()">Continue payment</button>`;
     screen?.append(box);
   }
   if (state.screen === "track" && state.tracking.order?.order_status === "cancelled") {

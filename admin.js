@@ -2517,7 +2517,7 @@ function renderOrders() {
         `).join("")}
       </div>
       ${o.notes ? `<div class="ref-note">Customer note: ${escapeHtml(o.notes)}</div>` : ""}
-      ${o.payment_transaction_reference ? `<div class="ref-note">PayNow transaction reference: <b>${escapeHtml(o.payment_transaction_reference)}</b></div>` : ""}
+      ${o.payment_transaction_reference ? `<div class="ref-note">${String(o.market_code || DASHBOARD_MARKET).toUpperCase() === "MY" ? "Touch ’n Go / bank transfer" : "PayNow"} transaction reference: <b>${escapeHtml(o.payment_transaction_reference)}</b></div>` : ""}
       ${o.payment_screenshot_url ? `<div style="margin-top:8px;"><button class="small-btn" onclick='openPaymentProof(${JSON.stringify(o.payment_screenshot_url)})'>View payment screenshot</button></div>` : ""}
       ${astate.whatsappError && String(astate.whatsappError.orderId) === String(o.id) ? `<div class="ref-note" role="alert" style="border-color:#B33333;background:#FBEAEA;color:#7a1f1f;">${escapeHtml(astate.whatsappError.message)}</div>` : ""}
       <div class="divider"></div>
