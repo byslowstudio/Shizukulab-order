@@ -2,7 +2,7 @@
   const STORAGE_KEY = "slow-studio-owner-console-v1";
   const seed = {
     workspaces: [
-      { id:"shizuku-website", name:"Shizuku Lab Website", market:"Brand website", type:"Slow Studio website workspace", visibility:"live", connected:true, customerUrl:"/", adminUrl:"/cms.html" },
+      { id:"shizuku-website", name:"Shizuku Lab Website", market:"Brand website", type:"Slow Studio website workspace", visibility:"live", connected:true, customerUrl:"/website/shizuku-lab", adminUrl:"/website/shizuku-lab/admin" },
       { id:"shizuku-sg", name:"Shizuku Lab", market:"Singapore · SGD", type:"Slow Studio workspace", visibility:"live", connected:true, customerUrl:"/shop/shizuku-lab-sg", adminUrl:"/workspace/shizuku-lab-sg" },
       { id:"shizuku-my", name:"Shizuku Lab Malaysia", market:"Malaysia · MYR", type:"Slow Studio workspace", visibility:"hidden", connected:true, customerUrl:"/shop/shizuku-lab-my", adminUrl:"/workspace/shizuku-lab-my" },
       { id:"hbb-demo-sg", name:"Singapore HBB Demo", market:"Singapore · SGD · local", type:"HBB trial workspace", visibility:"demo", connected:false, customerUrl:"/demo/singapore/shop", adminUrl:"/demo/singapore" },

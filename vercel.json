@@ -4,6 +4,9 @@
     { "source": "/", "destination": "/slow-studio.html" },
     { "source": "/unsubscribe", "destination": "/unsubscribe.html" },
     { "source": "/slow-studio", "destination": "/slow-studio.html" },
+    { "source": "/website/shizuku-lab", "destination": "/shizuku-website.html" },
+    { "source": "/website/shizuku-lab/admin", "destination": "/cms.html" },
+    { "source": "/welcome/shizuku-lab", "destination": "/index.html" },
     { "source": "/shop/shizuku-lab-sg", "destination": "/order.html" },
     { "source": "/shop/shizuku-lab-my", "destination": "/order.html?market=MY" },
     { "source": "/workspace/shizuku-lab-sg", "destination": "/admin.html" },
@@ -26,6 +29,10 @@
     },
     {
       "source": "/slow-studio",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
+    {
+      "source": "/website/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
     },
     {

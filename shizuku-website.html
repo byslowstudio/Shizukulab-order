@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f4f0e7">
+  <meta name="shizuku-build" content="4.1">
+  <title>Shizuku Lab — Matcha &amp; Houjicha Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://ohgfmmvsxckayamlzdlj.supabase.co" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&amp;family=Gloock&amp;family=Noto+Serif+JP:wght@400;500&amp;family=Playfair+Display:ital,wght@0,500;1,500&amp;family=Cormorant+Garamond:wght@500;600&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=41">
+  <link id="siteFavicon" rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=41">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=41">
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <div class="cursor" id="cursor"><img src="assets/chasen-cursor.png" alt=""></div>
+  <header>
+    <a href="#home" class="logo-wrap" aria-label="Shizuku Lab"><span class="logo-mark" id="headerLogo"></span></a>
+    <nav id="nav"></nav>
+    <a class="order-link" id="headerOrder" target="_blank" rel="noopener">Reserve your cup</a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span></button>
+  </header>
+  <div class="mobile-nav" id="mobileNav"></div>
+  <main id="site"></main>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer"><button id="drawerClose" aria-label="Close">×</button><div id="drawerContent"></div></aside>
+  <script src="site-data.js?v=41"></script>
+  <script src="site-render.js?v=41"></script>
+  <script src="supabase-config.js?v=41"></script>
+  <script src="website-live.js?v=41"></script>
+  <script src="website-app.js?v=41"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome · Shizuku Lab</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="/shizuku-tab-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Shizuku Lab">
+  <meta name="theme-color" content="#F3EEE3">
+  <link rel="stylesheet" href="style.css?v=29">
+</head>
+<body class="welcome-page welcome-loading">
+  <div class="inapp-browser-notice" id="inapp-browser-notice" hidden role="dialog" aria-modal="true" aria-labelledby="inapp-browser-title">
+    <section class="inapp-browser-card">
+      <div class="inapp-browser-logo"><img src="logo.png" alt="Store logo" id="inapp-browser-logo"></div>
+      <div class="inapp-browser-kicker">Instagram browser</div>
+      <h2 id="inapp-browser-title">Open this store in your browser</h2>
+      <p>For smoother payment and screenshot upload, open this ordering page in Safari or Chrome.</p>
+      <div class="inapp-browser-steps"><b>How to open it</b><span>1. Tap the three dots ··· at the top-right.</span><span>2. Choose “Open in external browser”.</span></div>
+      <button class="inapp-browser-copy" id="inapp-browser-copy" type="button">Copy store link</button>
+      <button class="inapp-browser-continue" id="inapp-browser-continue" type="button">Continue in Instagram anyway</button>
+    </section>
+  </div>
+  <div class="welcome-announcement" id="welcome-announcement" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-announcement-title">
+    <section class="welcome-announcement-card">
+      <button class="welcome-announcement-close" id="welcome-announcement-close" type="button" aria-label="Close">×</button>
+      <div class="welcome-announcement-kicker">Shizuku Lab update</div>
+      <h2 class="welcome-announcement-title" id="welcome-announcement-title"></h2>
+      <p class="welcome-announcement-message" id="welcome-announcement-message"></p>
+      <div class="welcome-announcement-promo" id="welcome-announcement-promo" hidden>
+        <span class="welcome-announcement-code" id="welcome-announcement-code"></span>
+        <button class="welcome-announcement-copy" id="welcome-announcement-copy" type="button">Copy code</button>
+      </div>
+      <button class="welcome-announcement-continue" id="welcome-announcement-continue" type="button">Continue</button>
+    </section>
+  </div>
+  <main class="welcome-card" id="welcome-app">
+    <div class="welcome-logo-frame"><img class="welcome-logo" src="logo.png" alt="Shizuku Lab logo"></div>
+    <h1 class="welcome-title">Shizuku Lab</h1>
+    <div class="welcome-sub">雫ラボ · CRAFTED DROP BY DROP</div>
+    <p class="welcome-copy">Little cups, big comfort. Freshly whisked matcha, crafted one cup at a time.</p>
+    <div class="welcome-actions">
+      <a class="welcome-enter" href="/shop/shizuku-lab-sg">Enter ordering →</a>
+      <div class="welcome-tools">
+        <a class="welcome-tool welcome-track" href="/shop/shizuku-lab-sg?screen=track">Track order</a>
+        <a class="welcome-tool welcome-loyalty" href="/shop/shizuku-lab-sg?screen=loyalty">Check your loyalty</a>
+      </div>
+    </div>
+    <div class="welcome-powered-by" id="welcome-powered-by"><span>Powered by Slow Studio</span></div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="welcome.js?v=27"></script>
+</body>
+</html>
