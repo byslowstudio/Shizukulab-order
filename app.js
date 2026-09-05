@@ -73,6 +73,8 @@ const state = {
     payment_qr_mode: "dynamic",
     show_paynow_name: true,
     show_paynow_number: true,
+    show_touchngo_name: true,
+    show_touchngo_number: true,
     collection_address: "Blk 130A drop off point, Near Creamier TPY, Toa Payoh Lorong 1, Singapore",
     collection_area_label: "Near Creamier · Toa Payoh",
     google_maps_url: "",
@@ -249,7 +251,7 @@ function storewideSaleApplies(item) {
 }
 function salePrice(item) {
   const original = originalPrice(item);
-  const discount = Number(item?.discount_price);
+  const discount = Number(state.market === "MY" ? item?.myr_discount_price : item?.discount_price);
   const productPrice = Number.isFinite(discount) && discount > 0 && discount < original ? discount : original;
   const percent = storewideSaleApplies(item) ? Math.max(0, Math.min(100, Number(state.store.storewide_sale_percent || 0))) : 0;
   const storewidePrice = percent > 0 ? Math.round(original * (1 - percent / 100) * 100) / 100 : original;
@@ -593,6 +595,7 @@ async function loadProducts() {
     description: item.description || "",
     price: Number(item.price || 0),
     discount_price: item.discount_price == null ? null : Number(item.discount_price),
+    myr_discount_price: item.myr_discount_price == null ? null : Number(item.myr_discount_price),
     stock: item.stock == null ? null : Number(item.stock),
   }));
   applyMarketMenu();
@@ -1210,8 +1213,8 @@ function onPaymentProof(input) {
     input.value = "";
     return;
   }
-  if (file.size > 8 * 1024 * 1024) {
-    alert("Please choose an image smaller than 8 MB.");
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Please choose an image of 5 MB or smaller.");
     input.value = "";
     return;
   }
@@ -1793,7 +1796,7 @@ function renderPayment() {
       <button class="back-link" onclick="leavePaymentPage()">${ICONS.back} ${state.tracking.order?.order_number === order.order_number ? "Back to Track Order" : "Back to menu"}</button>
       <div class="summary-card">
         ${qrHtml}
-        <div class="hint">${escapeHtml(malaysiaOrder ? "Scan with Touch 'n Go and enter the exact order amount shown below." : (state.store.payment_instructions || "Scan with your banking app, or PayNow to the account below."))}${state.store.show_paynow_name === false ? "" : `<br><b>${escapeHtml(paynowName)}</b>`}${state.store.show_paynow_number === false || !paynowNumber ? "" : `<br>${escapeHtml(paynowNumber)}`}</div>
+        <div class="hint">${escapeHtml(malaysiaOrder ? "Scan with Touch 'n Go and enter the exact order amount shown below." : (state.store.payment_instructions || "Scan with your banking app, or PayNow to the account below."))}${(malaysiaOrder ? state.store.show_touchngo_name : state.store.show_paynow_name) === false ? "" : `<br><b>${escapeHtml(paynowName)}</b>`}${(malaysiaOrder ? state.store.show_touchngo_number : state.store.show_paynow_number) === false || !paynowNumber ? "" : `<br>${escapeHtml(paynowNumber)}`}</div>
         ${uploadedQrMode ? `<div class="ref-note" style="color:#A36D1E;"><b>Pay exactly ${money(order.total)}.</b><br>The order amount is locked in Shizuku Lab. Please enter this exact amount in ${escapeHtml(paymentName)} before confirming.</div>` : `<div class="payment-timer" id="paynow-countdown" aria-live="polite">Please complete payment within ${paymentCountdownText()}.</div><button class="btn-secondary refresh-qr-btn" id="refresh-paynow-qr" ${paymentExpired ? "" : "hidden"} onclick="refreshPayNowQr()">Refresh QR · 15 minutes</button>`}
         <div class="divider"></div>
         ${state.store.show_payment_order_details === false ? "" : `<div class="row"><span class="label">Order</span><span class="mono">${escapeHtml(order.order_number || order.id || "")}</span></div><div class="row bold"><span class="label">Amount</span><span>${money(order.total)}</span></div>`}

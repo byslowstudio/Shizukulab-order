@@ -19,6 +19,9 @@ function doPost(e) {
       : incomingEventName;
     const order = payload.order || payload || {};
     const orderNumber = text(order.order_number || order.id || payload.order_number || "Unknown order");
+    const storeName = text(payload.store_name || order.store_name || "Shizuku Lab");
+    const ownerEmail = validEmail(payload.owner_email || payload.recipient_email) ? String(payload.owner_email || payload.recipient_email).trim() : RECIPIENT_EMAIL;
+    const senderName = storeName + " Orders";
     const customerName = text(order.customer_name || payload.customer_name);
     const customerPhone = text(order.customer_phone || payload.customer_phone);
     const total = Number(order.total || 0);
@@ -91,13 +94,13 @@ function doPost(e) {
     const htmlBody = emailCard(title, intro, orderNumber, rows, items, action, accent);
 
     if (payload.send_owner !== false) {
-      GmailApp.sendEmail(RECIPIENT_EMAIL, subject, body, {
-        name: "Shizuku Lab Orders",
+      GmailApp.sendEmail(ownerEmail, subject, body, {
+        name: senderName,
         htmlBody: htmlBody
       });
     }
     sendCustomerUpdate(eventName, payload, order, orderNumber, customerName, total, items);
-    return jsonResponse({ ok: true, event: eventName });
+    return jsonResponse({ ok: true, event: eventName, gmail_remaining:MailApp.getRemainingDailyQuota() });
   } catch (error) {
     return jsonResponse({ ok: false, error: String(error) });
   }
@@ -146,7 +149,17 @@ function sendCustomerUpdate(eventName, payload, order, orderNumber, customerName
   const preferenceText = unsubscribeUrl ? "\n\nEmail preferences: Unsubscribing also stops order confirmation and ready-for-collection email notifications. " + unsubscribeUrl : "";
   const preferenceHtml = unsubscribeUrl ? '<div style="max-width:620px;margin:0 auto;padding:14px 28px 24px;color:#8a8278;font:12px/1.5 Arial,sans-serif">Email preferences: <a href="' + html(unsubscribeUrl) + '" style="color:#6b6258">Unsubscribe</a>. Unsubscribing also stops order confirmation and ready-for-collection email notifications.</div>' : "";
   const body = [title,"",intro,"","Order: " + orderNumber,"Amount: $" + total.toFixed(2),"",action].join("\n") + preferenceText;
-  GmailApp.sendEmail(customerEmail, subject, body, { name:"Shizuku Lab Orders", htmlBody:emailCard(title,intro,orderNumber,rows,items,action,accent) + preferenceHtml });
+  const storeName = text(payload.store_name || order.store_name || "Shizuku Lab");
+  const customerOptions = { name:storeName + " Orders", htmlBody:emailCard(title,intro,orderNumber,rows,items,action,accent) + preferenceHtml };
+  if (validEmail(payload.owner_email)) customerOptions.replyTo = String(payload.owner_email).trim();
+  GmailApp.sendEmail(customerEmail, subject, body, customerOptions);
+}
+
+/** Run from Apps Script to see the live recipient quota left for today. */
+function checkEmailQuota() {
+  const remaining = MailApp.getRemainingDailyQuota();
+  console.log("Gmail recipient quota remaining today: " + remaining);
+  return remaining;
 }
 
 function fillTemplate(template, values) {
@@ -329,5 +342,6 @@ function emailCard(title, intro, orderNumber, rows, items, action, accent) {
 }
 
 function text(value) { return String(value == null || value === "" ? "—" : value).replace(/[\r\n]+/g, " ").trim(); }
+function validEmail(value) { return /^\S+@\S+\.\S+$/.test(String(value || "").trim()); }
 function html(value) { return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 function jsonResponse(value) { return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON); }

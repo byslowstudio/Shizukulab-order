@@ -40,6 +40,7 @@
   let productionSettingsId = null;
   let panel = "overview";
   let accountBusy = false;
+  let capacity = null;
 
   const save = () => {
     const localState = { ...state, workspaces:state.workspaces.filter((item) => item.source !== "cloud") };
@@ -50,6 +51,13 @@
   const fmt = (date) => new Date(date).toLocaleString([], { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
   const absoluteUrl = (path) => new URL(path, window.location.href).href;
   const hostedSlowStudioUrl = () => `${window.location.origin}/slow-studio`;
+  const formatBytes = (bytes) => {
+    const value = Math.max(0, Number(bytes || 0));
+    if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
+    if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toFixed(1)} MB`;
+    return `${Math.round(value / 1024)} KB`;
+  };
+  const percent = (used,total) => total ? Math.min(100, Math.round(Number(used || 0) / Number(total) * 100)) : 0;
 
   function setPanel(next) { panel = next; render(); }
   function addActivity(text) {
@@ -123,6 +131,14 @@
     });
     state.workspaces = [...state.workspaces.filter((item) => item.source !== "cloud"), ...cloud];
     render();
+  }
+
+  async function syncCapacity() {
+    if (!productionClient) return;
+    const { data:{ user } } = await productionClient.auth.getUser();
+    if (!user) return;
+    const { data,error } = await productionClient.rpc("get_slow_studio_capacity");
+    if (!error && data) { capacity = data; render(); }
   }
 
   function openAccountDialog() { document.getElementById("hbbAccountDialog")?.showModal(); }
@@ -243,8 +259,13 @@
   function render() {
     const openIssues = state.issues.filter((item) => item.status !== "resolved").length;
     const productionCount = state.workspaces.filter((item) => !item.type.includes("trial")).length;
+    const sgCount=Number(capacity?.singapore_hbb_count||0),sgLimit=Number(capacity?.singapore_hbb_limit||2);
+    const myCount=Number(capacity?.malaysia_hbb_count||0);
+    const dbUsed=Number(capacity?.database_bytes||100240531),dbTotal=Number(capacity?.database_quota_bytes||524288000);
+    const storageUsed=Number(capacity?.storage_bytes||107773669),storageTotal=Number(capacity?.storage_quota_bytes||1073741824);
+    const gmailRemaining=capacity?.gmail_remaining_last_known;
     document.getElementById("slowStudioApp").innerHTML = `<div class="ss-shell"><aside class="ss-side"><div class="ss-brand"><span class="ss-mark">SS</span>Slow Studio</div><div class="ss-role">Owner workspace · Ting</div><div class="ss-nav-label">Workspace</div><nav class="ss-nav">${[["overview","Overview"],["workspaces","My stores"],["issues",`Issues · ${openIssues}`],["access","Access & roles"]].map(([key,label]) => `<button class="${panel === key ? "active" : ""}" onclick="SlowStudio.setPanel('${key}')">${label}</button>`).join("")}</nav><div class="ss-side-bottom">Production workspaces use Supabase with workspace access rules.<br><br>Demo data stays on each visitor's device only.</div></aside><main class="ss-main"><header class="ss-top"><div><div class="ss-eyebrow">Slow Studio · Owner console</div><h1>${panel === "overview" ? "Good day, Ting." : panel === "workspaces" ? "My stores" : panel === "issues" ? "HBB issue inbox" : "Access & roles"}</h1><p>${panel === "overview" ? "Manage your stores, future HBB clients and support issues in one place." : panel === "workspaces" ? "Create HBB accounts and share safe country demos from one screen." : panel === "issues" ? "See what happened, where it happened and your resolution note." : "Control who can view or edit each HBB workspace."}</p></div><div class="ss-owner"><span class="ss-avatar"><img src="lumi-slow-studio.png" alt="Lumi"></span><div><b>Ting</b><br><small>Slow Studio Owner</small></div></div></header>
-      <section class="ss-panel ${panel === "overview" ? "active" : ""}"><div class="ss-kpis"><div class="ss-kpi"><span>Workspaces</span><strong>${state.workspaces.length}</strong><small>${productionCount} production · 2 country demos</small></div><div class="ss-kpi"><span>Live websites</span><strong>${state.workspaces.filter((item) => item.visibility === "live").length}</strong><small>Hidden sites stay editable</small></div><div class="ss-kpi"><span>Open issues</span><strong>${openIssues}</strong><small>Across every HBB</small></div><div class="ss-kpi"><span>Demo data</span><strong>Local</strong><small>Never sent to Supabase</small></div></div><section class="ss-card"><div class="ss-card-head"><div><h2>Workspace health</h2><p>One row per store · country data stays separate.</p></div><button class="ss-btn" onclick="SlowStudio.setPanel('workspaces')">Manage stores</button></div><div class="ss-table-wrap"><table class="ss-table"><thead><tr><th>Workspace</th><th>Market</th><th>Status</th><th>Website / owner</th><th>Actions</th></tr></thead><tbody>${workspaceRows()}</tbody></table></div></section><section class="ss-card"><div class="ss-card-head"><div><h2>Recent owner activity</h2><p>Clear actions instead of technical log messages.</p></div></div>${state.activity.slice(0,6).map((item) => `<div class="ss-activity"><b>${esc(item.text)}</b><span>${fmt(item.at)}</span></div>`).join("")}</section></section>
+      <section class="ss-panel ${panel === "overview" ? "active" : ""}"><div class="ss-kpis"><div class="ss-kpi"><span>Singapore HBB</span><strong>${sgCount} / ${sgLimit}</strong><small>${Math.max(0,sgLimit-sgCount)} account slot(s) left</small></div><div class="ss-kpi"><span>Malaysia HBB</span><strong>${myCount}</strong><small>Ready for new MYR workspaces</small></div><div class="ss-kpi"><span>Database</span><strong>${percent(dbUsed,dbTotal)}%</strong><small>${formatBytes(dbUsed)} of ${formatBytes(dbTotal)}</small></div><div class="ss-kpi"><span>File storage</span><strong>${percent(storageUsed,storageTotal)}%</strong><small>${formatBytes(storageUsed)} of ${formatBytes(storageTotal)}</small></div></div><section class="ss-card"><div class="ss-card-head"><div><h2>Capacity & notifications</h2><p>Owner-only figures. Warnings appear at 80%, 90% and 100%.</p></div><button class="ss-btn" onclick="SlowStudio.refreshCapacity()">Refresh usage</button></div><div class="ss-permission-grid"><article class="ss-permission"><h3>Upload limits</h3><p>Images/payment proof: <b>${formatBytes(capacity?.image_file_limit_bytes||5242880)}</b><br>Documents/attachments: <b>${formatBytes(capacity?.attachment_file_limit_bytes||10485760)}</b></p></article><article class="ss-permission"><h3>Gmail sending</h3><p>Daily recipients: <b>${capacity?.gmail_daily_recipient_limit||100}</b><br>Remaining: <b>${gmailRemaining==null?"Check from Apps Script":gmailRemaining}</b></p></article><article class="ss-permission"><h3>Isolation</h3><p>Every HBB membership is checked in the database. Slow Studio Owner is the only cross-workspace role.</p></article></div></section><section class="ss-card"><div class="ss-card-head"><div><h2>Workspace health</h2><p>One row per store · country data stays separate.</p></div><button class="ss-btn" onclick="SlowStudio.setPanel('workspaces')">Manage stores</button></div><div class="ss-table-wrap"><table class="ss-table"><thead><tr><th>Workspace</th><th>Market</th><th>Status</th><th>Website / owner</th><th>Actions</th></tr></thead><tbody>${workspaceRows()}</tbody></table></div></section><section class="ss-card"><div class="ss-card-head"><div><h2>Recent owner activity</h2><p>Clear actions instead of technical log messages.</p></div></div>${state.activity.slice(0,6).map((item) => `<div class="ss-activity"><b>${esc(item.text)}</b><span>${fmt(item.at)}</span></div>`).join("")}</section></section>
       <section class="ss-panel ${panel === "workspaces" ? "active" : ""}"><section class="ss-card"><div class="ss-card-head"><div><h2>Store workspaces</h2><p>Add an HBB owner as Pending, or share a demo that never touches Supabase.</p></div><button class="ss-btn primary" onclick="SlowStudio.openAccountDialog()">+ Add HBB account</button></div><div class="ss-invite-note" style="margin:0 20px 18px"><b>What is the hosted Slow Studio page?</b><br>It is this online Slow Studio website at <b>${esc(hostedSlowStudioUrl())}</b>. Unlike a file:// preview, it can sign in, connect to Supabase, create real HBB accounts and update live websites.</div><div class="ss-table-wrap"><table class="ss-table"><thead><tr><th>Workspace</th><th>Market</th><th>Status</th><th>Website / owner</th><th>Actions</th></tr></thead><tbody>${workspaceRows()}</tbody></table></div><div class="ss-demo-banner"><div><h3>Shareable HBB try-out links</h3><p>Send the matching country link by WhatsApp or email. Visitors can try Orders, Products, Inventory, Costing, Marketing, Membership and Design; their data stays only in their browser and never connects to Shizuku Lab or Supabase.</p></div><div class="ss-actions"><button class="ss-btn purple" onclick="SlowStudio.copyDemoLink('SG')">Copy Singapore demo</button><button class="ss-btn purple" onclick="SlowStudio.copyDemoLink('MY')">Copy Malaysia demo</button><button class="ss-btn" onclick="SlowStudio.resetDemo()">Reset my demo</button></div></div></section></section>
       <section class="ss-panel ${panel === "issues" ? "active" : ""}"><section class="ss-card"><div class="ss-card-head"><div><h2>Issues across HBB workspaces</h2><p>Page, problem, time and owner resolution are shown together.</p></div></div>${issueRows()}</section></section>
       <section class="ss-panel ${panel === "access" ? "active" : ""}"><section class="ss-card"><div class="ss-card-head"><div><h2>Permission levels</h2><p>Each production HBB is protected by workspace-level Supabase access rules.</p></div></div><div class="ss-permission-grid"><article class="ss-permission"><h3>Slow Studio Owner</h3><p>Your account.</p><ul><li>Open every HBB workspace</li><li>Create HBB accounts</li><li>Edit settings and resolve issues</li><li>Hide or publish websites</li></ul></article><article class="ss-permission"><h3>HBB Owner</h3><p>Each business owner.</p><ul><li>Only their own workspace</li><li>Products, orders and marketing</li><li>Invite their staff</li><li>Cannot access another HBB</li></ul></article><article class="ss-permission"><h3>Staff / Marketing</h3><p>Limited by role.</p><ul><li>Operations: orders and inventory</li><li>Marketing: campaigns and customers</li><li>Viewer: read only</li><li>No other workspace access</li></ul></article></div></section></section>
@@ -253,8 +274,9 @@
     document.querySelector(".ss-mark").innerHTML = '<img src="lumi-slow-studio.png" alt="Lumi">';
   }
 
-  window.SlowStudio = { setPanel,setVisibility,setIssueStatus,setIssueNote,resetDemo,copyDemoLink,openAccountDialog,closeAccountDialog,createHbbAccount,toggleWorkspaceLogo,uploadWorkspaceLogo };
+  window.SlowStudio = { setPanel,setVisibility,setIssueStatus,setIssueNote,resetDemo,copyDemoLink,openAccountDialog,closeAccountDialog,createHbbAccount,toggleWorkspaceLogo,uploadWorkspaceLogo,refreshCapacity:syncCapacity };
   render();
   syncProductionVisibility();
   syncCloudWorkspaces();
+  syncCapacity();
 })();

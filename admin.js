@@ -14,6 +14,13 @@ const astate = {
   navScrollTop: 0,
   loginEmail: "tinghuioh29@gmail.com",
   loginPassword: "",
+  mfaMode: "",
+  mfaFactorId: "",
+  mfaChallengeId: "",
+  mfaQrCode: "",
+  mfaSecret: "",
+  mfaCode: "",
+  mfaMessage: "",
   recoveryMode: false,
   recoveryPassword: "",
   recoveryPasswordConfirm: "",
@@ -122,18 +129,20 @@ function marketMoney(n, market = astate.costingMarket) {
   return new Intl.NumberFormat(market === "MY" ? "en-MY" : "en-SG", { style: "currency", currency }).format(Number(n || 0));
 }
 function bundleStartingPriceAdmin(bundle) {
-  if (String(bundle?.bundle_pricing_mode || "fixed") !== "sum_selected") return Number(bundle?.discount_price || bundle?.price || 0);
+  const my = ADMIN_WORKSPACE_MARKET === "MY";
+  if (String(bundle?.bundle_pricing_mode || "fixed") !== "sum_selected") return Number(my ? (bundle?.myr_discount_price || bundle?.myr_price || 0) : (bundle?.discount_price || bundle?.price || 0));
   const allowedIds = Array.isArray(bundle?.bundle_product_ids) ? bundle.bundle_product_ids.map(String) : [];
   const choices = astate.menu.filter((product) => !product.is_bundle && (!allowedIds.length || allowedIds.includes(String(product.id))));
-  const overrides = bundle?.bundle_option_prices && typeof bundle.bundle_option_prices === "object" ? bundle.bundle_option_prices : {};
+  const sourceOverrides = my ? bundle?.bundle_myr_option_prices : bundle?.bundle_option_prices;
+  const overrides = sourceOverrides && typeof sourceOverrides === "object" ? sourceOverrides : {};
   const prices = choices.map((product) => {
     const override = Number(overrides[String(product.id)]);
-    return Number.isFinite(override) && override >= 0 ? override : Number(product.discount_price || product.price || 0);
+    return Number.isFinite(override) && override >= 0 ? override : Number(my ? (product.myr_discount_price || product.myr_price || 0) : (product.discount_price || product.price || 0));
   });
-  return Number(bundle?.price || 0) + (prices.length ? Math.min(...prices) * 2 : 0);
+  return Number(my ? bundle?.myr_price || 0 : bundle?.price || 0) + (prices.length ? Math.min(...prices) * 2 : 0);
 }
 function bundleDisplayFromPriceAdmin(bundle) {
-  const saved = Number(bundle?.bundle_display_from_price);
+  const saved = Number(ADMIN_WORKSPACE_MARKET === "MY" ? bundle?.bundle_myr_display_from_price : bundle?.bundle_display_from_price);
   return Number.isFinite(saved) && saved >= 0 ? saved : bundleStartingPriceAdmin(bundle);
 }
 function escapeHtml(value) {
@@ -675,7 +684,7 @@ async function deleteCancelledOrder(id) {
 /* ---- menu (products) CRUD — unchanged from before ---- */
 function newMenuItem() {
   const firstGroup = astate.productGroups[0];
-  astate.editing = { id: null, enabled_option_group_ids: [], group_id: firstGroup?.id || null, category: firstGroup?.name || "Signature", name: "", description: "", price: 0, discount_price: null, image_url: "", is_available: true, show_price_on_menu: true, is_bundle: false, bundle_product_ids: [], bundle_pricing_mode: "fixed", bundle_selection_count: 2, bundle_option_prices: {}, bundle_show_choice_prices: false, bundle_display_from_price: null, malaysia_available: false, myr_price: null, bundle_myr_option_prices: {}, bundle_myr_display_from_price: null, stock: 0, sort_order: astate.menu.length + 1 };
+  astate.editing = { id: null, enabled_option_group_ids: [], group_id: firstGroup?.id || null, category: firstGroup?.name || "Signature", name: "", description: "", price: 0, discount_price: null, image_url: "", is_available: true, show_price_on_menu: true, is_bundle: false, bundle_product_ids: [], bundle_pricing_mode: "fixed", bundle_selection_count: 2, bundle_option_prices: {}, bundle_show_choice_prices: false, bundle_display_from_price: null, malaysia_available: ADMIN_WORKSPACE_MARKET === "MY", myr_price: null, myr_discount_price: null, bundle_myr_option_prices: {}, bundle_myr_display_from_price: null, stock: 0, sort_order: astate.menu.length + 1 };
   render();
 }
 function editMenuItem(id) {
@@ -686,7 +695,7 @@ function editMenuItem(id) {
 }
 function cancelEdit() { astate.editing = null; render(); }
 function onEditField(key, value) {
-  if (key === "discount_price") astate.editing[key] = value === "" ? null : (parseFloat(value) || 0);
+  if (["discount_price", "myr_discount_price"].includes(key)) astate.editing[key] = value === "" ? null : (parseFloat(value) || 0);
   else if (["bundle_display_from_price", "bundle_myr_display_from_price", "myr_price"].includes(key)) astate.editing[key] = value === "" ? null : Math.max(0, Number(value || 0));
   else if (key === "price" || key === "stock") astate.editing[key] = parseFloat(value) || 0;
   else astate.editing[key] = value;
@@ -737,7 +746,7 @@ async function uploadStorefrontImage(input, target) {
   const file = input?.files?.[0];
   if (!file) return;
   if (!file.type.startsWith("image/")) { alert("Please choose an image file."); return; }
-  if (file.size > 8 * 1024 * 1024) { alert("Please use an image smaller than 8 MB."); return; }
+  if (file.size > 5 * 1024 * 1024) { alert("Please use an image of 5 MB or smaller."); return; }
   if (window.SLOW_STUDIO_DEMO_MODE) {
     const reader = new FileReader();
     reader.onload = () => {
@@ -763,13 +772,13 @@ async function uploadMarketingAttachment(input) {
   if (!file) return;
   const allowed = file.type.startsWith("image/") || ["application/pdf","text/plain","text/csv","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"].includes(file.type);
   if (!allowed) { alert("Please choose an image, PDF, Word, Excel, CSV or text file."); return; }
-  if (file.size > 8 * 1024 * 1024) { alert("Please use a file smaller than 8 MB."); return; }
+  if (file.size > 10 * 1024 * 1024) { alert("Please use a file of 10 MB or smaller."); return; }
   astate.marketingAttachmentUploading = true; render();
   const extension = (file.name.split(".").pop() || "file").replace(/[^a-z0-9]/gi, "");
-  const path = `marketing/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${extension}`;
-  const { error } = await db.storage.from("storefront-images").upload(path, file, { upsert:false, contentType:file.type || "application/octet-stream" });
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${extension}`;
+  const { error } = await db.storage.from("marketing-attachments").upload(path, file, { upsert:false, contentType:file.type || "application/octet-stream" });
   if (error) { astate.marketingAttachmentUploading=false; alert("Could not upload attachment: " + error.message); render(); return; }
-  const { data } = db.storage.from("storefront-images").getPublicUrl(path);
+  const { data } = db.storage.from("marketing-attachments").getPublicUrl(path);
   astate.settingsDraft.marketing_attachment_url = data.publicUrl;
   astate.settingsDraft.marketing_attachment_name = file.name;
   astate.settingsDraft.marketing_attachment_type = file.type || "application/octet-stream";
@@ -784,6 +793,7 @@ function removeMarketingAttachment() {
 async function saveMenuItem() {
   const item = astate.editing;
   if (!item.name.trim()) { alert("Name is required."); return; }
+  if (ADMIN_WORKSPACE_MARKET === "MY") item.malaysia_available = true;
   if (!IS_CONFIGURED) {
     if (window.SLOW_STUDIO_DEMO_MODE) {
       const saved={...item,id:item.id||`demo-${Date.now()}`};
@@ -1240,10 +1250,76 @@ async function saveNewPassword() {
   await checkAdminSession();
 }
 
-async function checkAdminSession() {
+async function prepareAdminMfa() {
+  if (!db) return false;
+  const { data:aal, error:aalError } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aalError) {
+    astate.mfaMessage = `Could not check two-step verification: ${aalError.message}`;
+    return false;
+  }
+  if (aal?.currentLevel === "aal2") {
+    astate.mfaMode = "";
+    astate.mfaMessage = "";
+    return true;
+  }
+  const { data:factorsData, error:factorsError } = await db.auth.mfa.listFactors();
+  if (factorsError) {
+    astate.mfaMessage = `Could not load two-step verification: ${factorsError.message}`;
+    return false;
+  }
+  const verified = (factorsData?.totp || []).find((factor) => factor.status === "verified");
+  if (verified) {
+    const { data:challenge, error:challengeError } = await db.auth.mfa.challenge({ factorId:verified.id });
+    if (challengeError) {
+      astate.mfaMessage = `Could not start verification: ${challengeError.message}`;
+      return false;
+    }
+    astate.mfaFactorId = verified.id;
+    astate.mfaChallengeId = challenge.id;
+    astate.mfaMode = "challenge";
+    astate.mfaMessage = "Enter the 6-digit code from your Authenticator app.";
+    render();
+    return false;
+  }
+  const { data:enrolment, error:enrolError } = await db.auth.mfa.enroll({ factorType:"totp", friendlyName:"Slow Studio Admin" });
+  if (enrolError) {
+    astate.mfaMessage = `Could not set up two-step verification: ${enrolError.message}`;
+    return false;
+  }
+  const { data:challenge, error:challengeError } = await db.auth.mfa.challenge({ factorId:enrolment.id });
+  if (challengeError) {
+    astate.mfaMessage = `Could not start verification: ${challengeError.message}`;
+    return false;
+  }
+  astate.mfaFactorId = enrolment.id;
+  astate.mfaChallengeId = challenge.id;
+  astate.mfaQrCode = enrolment.totp?.qr_code || "";
+  astate.mfaSecret = enrolment.totp?.secret || "";
+  astate.mfaMode = "enrol";
+  astate.mfaMessage = "Scan this QR in Google Authenticator, Microsoft Authenticator or 1Password, then enter the 6-digit code.";
+  render();
+  return false;
+}
+
+async function verifyAdminMfa() {
+  const code = String(astate.mfaCode || "").replace(/\s/g, "");
+  if (!/^\d{6}$/.test(code)) { astate.mfaMessage = "Enter the 6-digit code."; render(); return; }
+  astate.mfaMessage = "Verifying…"; render();
+  const { error } = await db.auth.mfa.verify({ factorId:astate.mfaFactorId, challengeId:astate.mfaChallengeId, code });
+  if (error) { astate.mfaMessage = "That code was not accepted. Check the time on your phone and try again."; render(); return; }
+  astate.mfaMode = "";
+  astate.mfaCode = "";
+  astate.mfaMessage = "";
+  astate.welcomePending = true;
+  await checkAdminSession(true);
+  render();
+}
+
+async function checkAdminSession(skipMfa = false) {
   if (!db) return;
   const { data, error } = await db.auth.getUser();
   if (error || !data?.user) return;
+  if (!skipMfa && !(await prepareAdminMfa())) return;
   const email = String(data.user.email || "").toLowerCase();
   const { data: member, error: memberError } = await db
     .from("studio_users")
@@ -1793,6 +1869,22 @@ function renderAnalyticsReportTab() {
 }
 
 function renderLogin() {
+  if (astate.mfaMode) return `
+  <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
+    <div class="overlay-card" style="max-width:380px;margin:0 auto;text-align:center;">
+      <div class="display overlay-title">Two-step verification</div>
+      <div class="overlay-sub">Password accepted. Complete this private second step to open Admin.</div>
+      ${astate.mfaMode === "enrol" && astate.mfaQrCode ? `<img src="${escapeHtml(astate.mfaQrCode)}" alt="Authenticator setup QR" style="display:block;width:210px;height:210px;object-fit:contain;margin:14px auto;background:#fff;border:1px solid #E1D9C8;border-radius:14px;padding:8px;">` : ""}
+      ${astate.mfaMode === "enrol" && astate.mfaSecret ? `<div class="hint" style="margin:0 0 12px;word-break:break-all;">Manual setup code: <b>${escapeHtml(astate.mfaSecret)}</b></div>` : ""}
+      <input inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" value="${escapeHtml(astate.mfaCode)}"
+        oninput="astate.mfaCode=this.value.replace(/[^0-9]/g,'').slice(0,6);"
+        onkeydown="if(event.key==='Enter') verifyAdminMfa();"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;text-align:center;font-size:20px;letter-spacing:.25em;">
+      ${astate.mfaMessage ? `<div class="hint" style="text-align:left;line-height:1.45;margin:0 0 12px;">${escapeHtml(astate.mfaMessage)}</div>` : ""}
+      <button class="btn-primary" style="width:100%;" onclick="verifyAdminMfa()">Verify and open Admin</button>
+      <button class="link-btn" style="margin-top:14px;width:100%;" onclick="logoutAdmin()">Sign out</button>
+    </div>
+  </div>`;
   if (astate.recoveryMode) return `
   <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
     <div class="overlay-card" style="max-width:340px;margin:0 auto;">
@@ -1829,6 +1921,23 @@ function renderLogin() {
       <button class="link-btn" style="margin-top:14px;width:100%;" onclick="sendPasswordSetup()">First time here? Set or reset password</button>
     </div>
   </div>`;
+}
+
+function renderMarketPaymentSettings(s) {
+  if (ADMIN_WORKSPACE_MARKET === "MY") return `
+    <div class="field"><label>Touch ’n Go QR mode</label><select disabled><option>Uploaded Touch ’n Go QR image · static amount</option></select><div class="hint" style="text-align:left;margin-top:5px;">A personal uploaded Touch ’n Go QR is static. The customer must enter the exact MYR total shown at checkout. A true amount-locked dynamic QR requires a Touch ’n Go merchant API integration and merchant credentials.</div></div>
+    <div class="field"><label>Touch ’n Go account name</label><input value="${escapeHtml(s.touchngo_name || "")}" placeholder="Your account name" oninput="onSettingsField('touchngo_name',this.value)"></div>
+    <div class="field"><label>Touch ’n Go phone number</label><input value="${escapeHtml(s.touchngo_number || "")}" placeholder="+60 1X-XXXX XXXX" oninput="onSettingsField('touchngo_number',this.value)"></div>
+    <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:10px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_touchngo_name !== false ? "checked" : ""} onchange="onSettingsField('show_touchngo_name',this.checked)"><span><b>Show name to customers</b></span></label>
+    <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_touchngo_number !== false ? "checked" : ""} onchange="onSettingsField('show_touchngo_number',this.checked)"><span><b>Show Touch ’n Go phone number to customers</b></span></label>
+    <div class="field"><label>Uploaded Touch ’n Go QR image</label><input value="${escapeHtml(s.touchngo_qr_url || "")}" placeholder="Upload below or paste image URL" oninput="onSettingsField('touchngo_qr_url',this.value)"><input type="file" accept="image/*" style="margin-top:8px;" onchange="uploadStorefrontImage(this,'touchngo_qr_url')">${s.touchngo_qr_url ? `<img src="${escapeHtml(s.touchngo_qr_url)}" alt="Touch ’n Go QR preview" style="display:block;width:190px;height:190px;object-fit:contain;margin-top:10px;border:1px solid #E1D9C8;border-radius:14px;padding:8px;background:#fff;">` : ""}<div class="hint" style="text-align:left;margin-top:5px;">The customer sees the exact MYR order total beside this QR. Confirm the submitted proof before marking the order paid.</div></div>`;
+  return `
+    <div class="field"><label>PayNow QR mode</label><select onchange="onSettingsField('payment_qr_mode',this.value);render()"><option value="dynamic" ${(s.payment_qr_mode || "dynamic") === "dynamic" ? "selected" : ""}>Dynamic QR · order amount locked</option><option value="uploaded" ${s.payment_qr_mode === "uploaded" ? "selected" : ""}>Use my uploaded QR image</option></select><div class="hint" style="text-align:left;margin-top:5px;">Dynamic QR is recommended because it inserts the exact order total. An uploaded static QR cannot prevent customers changing the amount in their banking app.</div></div>
+    <div class="field"><label>PayNow name</label><input value="${escapeHtml(s.paynow_name || "")}" oninput="onSettingsField('paynow_name',this.value)"></div>
+    <div class="field"><label>PayNow number</label><input value="${escapeHtml(s.paynow_number || "")}" placeholder="+65 9XXX XXXX" oninput="onSettingsField('paynow_number',this.value)"></div>
+    <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:10px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_paynow_name !== false ? "checked" : ""} onchange="onSettingsField('show_paynow_name',this.checked)"><span><b>Show PayNow name to customers</b></span></label>
+    <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_paynow_number !== false ? "checked" : ""} onchange="onSettingsField('show_paynow_number',this.checked)"><span><b>Show PayNow phone number to customers</b></span></label>
+    <div class="field"><label>Uploaded PayNow QR image</label><input value="${escapeHtml(s.paynow_url || "")}" placeholder="Upload below or paste image URL" oninput="onSettingsField('paynow_url',this.value)"><input type="file" accept="image/*" style="margin-top:8px;" onchange="uploadStorefrontImage(this,'paynow_url')">${s.paynow_url ? `<img src="${escapeHtml(s.paynow_url)}" alt="PayNow QR preview" style="display:block;width:190px;height:190px;object-fit:contain;margin-top:10px;border:1px solid #E1D9C8;border-radius:14px;padding:8px;background:#fff;">` : ""}<div class="hint" style="text-align:left;margin-top:5px;">Used only when QR mode is set to “Use my uploaded QR image”.</div></div>`;
 }
 
 function renderAdminWelcome() {
@@ -2919,12 +3028,7 @@ function renderSettingsTab() {
     </label>
     <div class="divider"></div>
     <div class="display" style="font-size:20px;margin:4px 0 8px;">Payment & collection</div>
-    <div class="field"><label>PayNow QR mode</label><select onchange="onSettingsField('payment_qr_mode',this.value);render()"><option value="dynamic" ${(s.payment_qr_mode || "dynamic") === "dynamic" ? "selected" : ""}>Dynamic QR · order amount locked</option><option value="uploaded" ${s.payment_qr_mode === "uploaded" ? "selected" : ""}>Use my uploaded QR image</option></select><div class="hint" style="text-align:left;margin-top:5px;">Dynamic QR is recommended because it inserts the exact order total. An uploaded static QR cannot prevent customers changing the amount in their banking app.</div></div>
-    ${field("PayNow name", "paynow_name")}
-    ${field("PayNow number", "paynow_number", "+65 9XXX XXXX")}
-    <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:10px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_paynow_name !== false ? "checked" : ""} onchange="onSettingsField('show_paynow_name',this.checked)"><span><b>Show PayNow name to customers</b></span></label>
-    <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_paynow_number !== false ? "checked" : ""} onchange="onSettingsField('show_paynow_number',this.checked)"><span><b>Show PayNow phone number to customers</b></span></label>
-    <div class="field"><label>Uploaded PayNow QR image</label><input value="${escapeHtml(s.paynow_url || "")}" placeholder="Upload below or paste image URL" oninput="onSettingsField('paynow_url',this.value)"><input type="file" accept="image/*" style="margin-top:8px;" onchange="uploadStorefrontImage(this,'paynow_url')">${s.paynow_url ? `<img src="${escapeHtml(s.paynow_url)}" alt="PayNow QR preview" style="display:block;width:190px;height:190px;object-fit:contain;margin-top:10px;border:1px solid #E1D9C8;border-radius:14px;padding:8px;background:#fff;">` : ""}<div class="hint" style="text-align:left;margin-top:5px;">Used only when QR mode is set to “Use my uploaded QR image”.</div></div>
+    ${renderMarketPaymentSettings(s)}
     ${field("Collection area shown on ordering homepage", "collection_area_label", "e.g. Near Creamier · Toa Payoh")}
     ${field("Full collection address", "collection_address")}
     ${field("Google Maps link (optional)", "google_maps_url", "https://maps.google.com/...")}
@@ -3255,6 +3359,14 @@ function renderEditOverlay() {
   if (astate.editingOrder) return renderOrderEditor();
   if (!astate.editing) return "";
   const item = astate.editing;
+  const isMalaysiaAdmin = ADMIN_WORKSPACE_MARKET === "MY";
+  const itemCurrency = isMalaysiaAdmin ? "MYR" : "SGD";
+  const itemPriceKey = isMalaysiaAdmin ? "myr_price" : "price";
+  const itemDiscountKey = isMalaysiaAdmin ? "myr_discount_price" : "discount_price";
+  const itemPrice = isMalaysiaAdmin ? item.myr_price : item.price;
+  const itemDiscountPrice = isMalaysiaAdmin ? item.myr_discount_price : item.discount_price;
+  const bundleFromKey = isMalaysiaAdmin ? "bundle_myr_display_from_price" : "bundle_display_from_price";
+  const bundleFromValue = isMalaysiaAdmin ? item.bundle_myr_display_from_price : item.bundle_display_from_price;
   return `
   <div class="overlay">
     <div class="overlay-card" style="max-height:80vh;overflow-y:auto;">
@@ -3262,20 +3374,18 @@ function renderEditOverlay() {
       <div class="field"><label>Name</label><input value="${item.name}" oninput="onEditField('name', this.value)"></div>
       <div class="field"><label>Product group</label><select onchange="onEditGroup(this.value)"><option value="">Other</option>${astate.productGroups.map((group) => `<option value="${group.id}" ${String(item.group_id) === String(group.id) ? "selected" : ""}>${escapeHtml(group.name)}</option>`).join("")}</select><div class="hint" style="text-align:left;margin-top:5px;">Shown as a large group heading on the ordering page.</div></div>
       <div class="field"><label>Description</label><textarea rows="2" oninput="onEditField('description', this.value)">${item.description || ""}</textarea></div>
-      <div class="field"><label>${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `Base price / service fee (${escapeHtml(astate.settingsDraft?.store_currency || "SGD")}, optional)` : `Original price (${escapeHtml(astate.settingsDraft?.store_currency || "SGD")})`}</label><input type="number" min="0" step="0.01" value="${item.price}" oninput="onEditField('price', this.value)">${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `<div class="hint" style="text-align:left;margin-top:5px;">The selected drink prices are added automatically. Keep this at 0 unless you want an extra base fee.</div>` : ""}</div>
-      <div class="field"><label>Discount price (${escapeHtml(astate.settingsDraft?.store_currency || "SGD")}, optional)</label><input type="number" min="0" step="0.01" value="${item.discount_price ?? ""}" placeholder="Leave blank if there is no sale" oninput="onEditField('discount_price', this.value)"><div class="hint" style="text-align:left;margin-top:5px;">Customers will see the original price crossed out and the discount price in green.</div></div>
+      <div class="field"><label>${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `Base price / service fee (${itemCurrency}, optional)` : `Original price (${itemCurrency})`}</label><input type="number" min="0" step="0.01" value="${itemPrice ?? ""}" oninput="onEditField('${itemPriceKey}', this.value)">${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `<div class="hint" style="text-align:left;margin-top:5px;">The selected drink prices are added automatically. Keep this at 0 unless you want an extra base fee.</div>` : ""}</div>
+      <div class="field"><label>Discount price (${itemCurrency}, optional)</label><input type="number" min="0" step="0.01" value="${itemDiscountPrice ?? ""}" placeholder="Leave blank if there is no sale" oninput="onEditField('${itemDiscountKey}', this.value)"><div class="hint" style="text-align:left;margin-top:5px;">Customers will see the original price crossed out and the discount price in green.</div></div>
       <div class="field"><label>Product image</label><input value="${item.image_url || ""}" placeholder="Upload below or paste image URL" oninput="onEditField('image_url', this.value)"><input type="file" accept="image/*" style="margin-top:8px;" onchange="uploadStorefrontImage(this,'products')">${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="Product preview" style="display:block;width:100%;height:150px;object-fit:cover;border:1px solid #E1D9C8;border-radius:12px;margin-top:8px;">` : ""}</div>
       <div class="field"><label>Weekly starting stock</label><input type="number" min="0" value="${item.stock || 0}" oninput="onEditField('stock', this.value)"><div class="hint" style="text-align:left;margin-top:5px;">Available stock refreshes automatically every Monday. Orders from previous weeks will not reduce this week's stock.</div></div>
       <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="bundle-check" ${item.is_bundle ? "checked" : ""} onchange="onEditField('is_bundle', this.checked);render()" style="width:auto;"><label style="margin:0;" for="bundle-check">This is a Bundle / Mix & Matcha</label></div>
       ${item.is_bundle ? `<div class="field"><label>Bundle price style</label><select onchange="onEditField('bundle_pricing_mode',this.value);render()"><option value="fixed" ${item.bundle_pricing_mode !== "sum_selected" ? "selected" : ""}>Fixed bundle price</option><option value="sum_selected" ${item.bundle_pricing_mode === "sum_selected" ? "selected" : ""}>Add selected product prices automatically</option></select><div class="hint" style="text-align:left;margin-top:5px;">Fixed keeps the bundle at one price. Automatic pricing changes the total as customers choose each item.</div></div>` : ""}
-      <label class="slot" style="cursor:pointer;gap:10px;margin:7px 0 16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${item.show_price_on_menu !== false ? "checked" : ""} onchange="onEditField('show_price_on_menu',this.checked)"><span><b>Show starting price on menu card</b><br><span class="hint" style="margin:0;">For Mix &amp; Matcha this appears as “From ${money(item.is_bundle ? bundleDisplayFromPriceAdmin(item) : Number(item.price || 0))}”.</span></span></label>
-      ${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `<div class="field"><label>Menu “From” price (${escapeHtml(astate.settingsDraft?.store_currency || "SGD")})</label><input type="number" min="0" step="0.01" value="${item.bundle_display_from_price ?? ""}" placeholder="${bundleStartingPriceAdmin(item).toFixed(2)}" oninput="onEditField('bundle_display_from_price',this.value)"><div class="hint" style="text-align:left;margin-top:5px;">Display only. This does not change individual drink prices or the final calculated total.</div></div>` : ""}
+      <label class="slot" style="cursor:pointer;gap:10px;margin:7px 0 16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${item.show_price_on_menu !== false ? "checked" : ""} onchange="onEditField('show_price_on_menu',this.checked)"><span><b>Show starting price on menu card</b><br><span class="hint" style="margin:0;">For Mix &amp; Matcha this appears as “From ${money(item.is_bundle ? bundleDisplayFromPriceAdmin(item) : Number(itemPrice || 0))}”.</span></span></label>
+      ${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `<div class="field"><label>Menu “From” price (${itemCurrency})</label><input type="number" min="0" step="0.01" value="${bundleFromValue ?? ""}" placeholder="${bundleStartingPriceAdmin(item).toFixed(2)}" oninput="onEditField('${bundleFromKey}',this.value)"><div class="hint" style="text-align:left;margin-top:5px;">Display only. This does not change individual drink prices or the final calculated total.</div></div>` : ""}
       ${item.is_bundle ? `<label class="slot" style="cursor:pointer;gap:10px;margin:7px 0 16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${item.bundle_show_choice_prices === true ? "checked" : ""} onchange="onEditField('bundle_show_choice_prices',this.checked)"><span><b>Show individual drink prices</b><br><span class="hint" style="margin:0;">Turn this off to hide prices beside Drink 1 and Drink 2. Customers will see the final total only after completing both choices.</span></span></label>` : ""}
-      ${window.SLOW_STUDIO_DEMO_MODE ? "" : `<div class="divider"></div><div class="display" style="font-size:18px;margin-bottom:10px">Malaysia · MYR</div>
-      <label class="slot" style="cursor:pointer;gap:10px;margin:7px 0 14px"><input type="checkbox" style="width:auto" ${item.malaysia_available === true ? "checked" : ""} onchange="onEditField('malaysia_available',this.checked);render()"><span><b>Available in Malaysia</b><br><span class="hint" style="margin:0">This does not change Singapore availability or SGD prices.</span></span></label>
-      ${item.malaysia_available === true ? `<div class="field"><label>${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? "MYR base price / service fee (optional)" : "Malaysia selling price (MYR)"}</label><input type="number" min="0" step="0.01" value="${item.myr_price ?? ""}" placeholder="0.00" oninput="onEditField('myr_price',this.value)"></div>${item.is_bundle && item.bundle_pricing_mode === "sum_selected" ? `<div class="field"><label>Malaysia menu “From” price (MYR)</label><input type="number" min="0" step="0.01" value="${item.bundle_myr_display_from_price ?? ""}" placeholder="10.00" oninput="onEditField('bundle_myr_display_from_price',this.value)"><div class="hint" style="text-align:left;margin-top:5px">Display only. The final MYR total still follows the MYR price of each selected drink.</div></div>` : ""}` : ""}`}
+      ${isMalaysiaAdmin ? `<div class="ref-note"><b>Malaysia workspace</b><br>This item and its MYR price are managed here only. Singapore prices are not shown or changed on this screen.</div>` : ""}
       <div class="field"><label>Customisation shown for this drink</label><div class="hint" style="text-align:left;margin:0 0 7px;">Tick only the options that apply. Unticked groups will not appear to customers.</div>${astate.optionGroups.filter((group) => group.is_visible !== false).map((group) => `<label class="slot" style="cursor:pointer;gap:10px;margin:7px 0;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${(item.enabled_option_group_ids || []).map(String).includes(String(group.id)) ? "checked" : ""} onchange="toggleProductOptionGroup('${group.id}',this.checked)"><span>${escapeHtml(group.name)}</span></label>`).join("")}</div>
-      ${item.is_bundle ? `<div class="field"><label>Products customers can choose</label><div class="hint" style="text-align:left;margin:0 0 7px;">Tick each eligible drink. SGD and MYR choice prices are separate; leaving an override blank follows that product’s own country price.</div>${astate.menu.filter((product) => String(product.id) !== String(item.id) && !product.is_bundle).map((product) => { const selected = Array.isArray(item.bundle_product_ids) && item.bundle_product_ids.map(String).includes(String(product.id)); const override = item.bundle_option_prices && Object.prototype.hasOwnProperty.call(item.bundle_option_prices,String(product.id)) ? item.bundle_option_prices[String(product.id)] : ""; const myrOverride = item.bundle_myr_option_prices && Object.prototype.hasOwnProperty.call(item.bundle_myr_option_prices,String(product.id)) ? item.bundle_myr_option_prices[String(product.id)] : ""; return `<div class="slot bundle-admin-choice"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${selected ? "checked" : ""} onchange="toggleBundleProduct('${product.id}',this.checked);render()"><span>${escapeHtml(product.name)}<br><span class="hint" style="margin:0;">SGD ${Number(product.discount_price || product.price || 0).toFixed(2)}${product.myr_price != null ? ` · MYR ${Number(product.myr_price).toFixed(2)}` : ""}</span></span>${item.bundle_pricing_mode === "sum_selected" && selected ? `<label><small>SGD</small><input type="number" min="0" step="0.01" value="${escapeHtml(override)}" placeholder="${Number(product.discount_price || product.price).toFixed(2)}" aria-label="SGD Mix and Match price for ${escapeHtml(product.name)}" oninput="setBundleOptionPrice('${product.id}',this.value)"></label><label><small>MYR</small><input type="number" min="0" step="0.01" value="${escapeHtml(myrOverride)}" placeholder="${Number(product.myr_price || 0).toFixed(2)}" aria-label="MYR Mix and Match price for ${escapeHtml(product.name)}" oninput="setBundleMyrOptionPrice('${product.id}',this.value)"></label>` : `<span></span><span></span>`}</div>`; }).join("")}</div>` : ""}
+      ${item.is_bundle ? `<div class="field"><label>Products customers can choose</label><div class="hint" style="text-align:left;margin:0 0 7px;">Tick each eligible drink. Leaving an override blank follows that product’s ${itemCurrency} price.</div>${astate.menu.filter((product) => String(product.id) !== String(item.id) && !product.is_bundle).map((product) => { const selected = Array.isArray(item.bundle_product_ids) && item.bundle_product_ids.map(String).includes(String(product.id)); const overrides = isMalaysiaAdmin ? item.bundle_myr_option_prices : item.bundle_option_prices; const override = overrides && Object.prototype.hasOwnProperty.call(overrides,String(product.id)) ? overrides[String(product.id)] : ""; const productPrice = Number(isMalaysiaAdmin ? (product.myr_discount_price || product.myr_price || 0) : (product.discount_price || product.price || 0)); const setter = isMalaysiaAdmin ? "setBundleMyrOptionPrice" : "setBundleOptionPrice"; return `<div class="slot bundle-admin-choice"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${selected ? "checked" : ""} onchange="toggleBundleProduct('${product.id}',this.checked);render()"><span>${escapeHtml(product.name)}<br><span class="hint" style="margin:0;">${itemCurrency} ${productPrice.toFixed(2)}</span></span>${item.bundle_pricing_mode === "sum_selected" && selected ? `<label><small>${itemCurrency}</small><input type="number" min="0" step="0.01" value="${escapeHtml(override)}" placeholder="${productPrice.toFixed(2)}" aria-label="${itemCurrency} Mix and Match price for ${escapeHtml(product.name)}" oninput="${setter}('${product.id}',this.value)"></label>` : `<span></span>`}</div>`; }).join("")}</div>` : ""}
       <div class="field" style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" id="avail-check" ${item.is_available ? "checked" : ""} onchange="onEditField('is_available', this.checked)" style="width:auto;">
         <label style="margin:0;" for="avail-check">Available on menu</label>
