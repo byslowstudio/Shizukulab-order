@@ -14,6 +14,8 @@ const astate = {
   navScrollTop: 0,
   loginEmail: "tinghuioh29@gmail.com",
   loginPassword: "",
+  loginOtpSent: false,
+  loginOtpCode: "",
   mfaMode: "",
   mfaFactorId: "",
   mfaChallengeId: "",
@@ -1208,6 +1210,48 @@ async function loginWithPassword() {
   render();
 }
 
+async function sendEmailLoginCode() {
+  if (!adminEmailIsAllowed()) return;
+  if (!db) { astate.loginMessage = "Supabase is not connected yet."; render(); return; }
+  astate.loginMessage = "Sending your 6-digit login code…";
+  render();
+  const email = String(astate.loginEmail || "").trim().toLowerCase();
+  const { error } = await db.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  if (error) {
+    astate.loginOtpSent = false;
+    astate.loginMessage = `We could not send the code: ${error.message}`;
+  } else {
+    astate.loginOtpSent = true;
+    astate.loginOtpCode = "";
+    astate.loginMessage = `A 6-digit code was sent to ${email}. Check Inbox and Spam.`;
+  }
+  render();
+}
+
+async function verifyEmailLoginCode() {
+  if (!db || !adminEmailIsAllowed()) return;
+  const token = String(astate.loginOtpCode || "").replace(/\D/g, "").slice(0, 6);
+  if (!/^\d{6}$/.test(token)) { astate.loginMessage = "Enter the complete 6-digit code from your email."; render(); return; }
+  astate.loginMessage = "Checking your code…";
+  render();
+  const email = String(astate.loginEmail || "").trim().toLowerCase();
+  const { error } = await db.auth.verifyOtp({ email, token, type: "email" });
+  if (error) {
+    astate.loginMessage = "That code is incorrect or has expired. Request a new code and try again.";
+    render();
+    return;
+  }
+  astate.loginOtpSent = false;
+  astate.loginOtpCode = "";
+  astate.loginMessage = "Email verified.";
+  astate.welcomePending = true;
+  await checkAdminSession(true);
+  render();
+}
+
 async function sendPasswordSetup() {
   if (!adminEmailIsAllowed()) return;
   if (!db) { astate.loginMessage = "Supabase is not connected yet."; render(); return; }
@@ -1319,7 +1363,23 @@ async function checkAdminSession(skipMfa = false) {
   if (!db) return;
   const { data, error } = await db.auth.getUser();
   if (error || !data?.user) return;
-  if (!skipMfa && !(await prepareAdminMfa())) return;
+  if (!skipMfa) {
+    const { data:sessionData } = await db.auth.getSession();
+    const token = sessionData?.session?.access_token || "";
+    let claims = {};
+    try {
+      const encoded = (token.split(".")[1] || "").replace(/-/g, "+").replace(/_/g, "/");
+      claims = JSON.parse(atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=")));
+    } catch (_) {}
+    const emailOtp = Array.isArray(claims.amr) && claims.amr.some((entry) => entry?.method === "otp");
+    if (claims.aal !== "aal2" && !emailOtp) {
+      await db.auth.signOut();
+      astate.loginMessage = "For security, request a fresh 6-digit code from your email to open Admin.";
+      astate.loginOtpSent = false;
+      render();
+      return;
+    }
+  }
   const email = String(data.user.email || "").toLowerCase();
   const { data: member, error: memberError } = await db
     .from("studio_users")
@@ -1869,22 +1929,6 @@ function renderAnalyticsReportTab() {
 }
 
 function renderLogin() {
-  if (astate.mfaMode) return `
-  <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
-    <div class="overlay-card" style="max-width:380px;margin:0 auto;text-align:center;">
-      <div class="display overlay-title">Two-step verification</div>
-      <div class="overlay-sub">Password accepted. Complete this private second step to open Admin.</div>
-      ${astate.mfaMode === "enrol" && astate.mfaQrCode ? `<img src="${escapeHtml(astate.mfaQrCode)}" alt="Authenticator setup QR" style="display:block;width:210px;height:210px;object-fit:contain;margin:14px auto;background:#fff;border:1px solid #E1D9C8;border-radius:14px;padding:8px;">` : ""}
-      ${astate.mfaMode === "enrol" && astate.mfaSecret ? `<div class="hint" style="margin:0 0 12px;word-break:break-all;">Manual setup code: <b>${escapeHtml(astate.mfaSecret)}</b></div>` : ""}
-      <input inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" value="${escapeHtml(astate.mfaCode)}"
-        oninput="astate.mfaCode=this.value.replace(/[^0-9]/g,'').slice(0,6);"
-        onkeydown="if(event.key==='Enter') verifyAdminMfa();"
-        style="width:100%;padding:12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;text-align:center;font-size:20px;letter-spacing:.25em;">
-      ${astate.mfaMessage ? `<div class="hint" style="text-align:left;line-height:1.45;margin:0 0 12px;">${escapeHtml(astate.mfaMessage)}</div>` : ""}
-      <button class="btn-primary" style="width:100%;" onclick="verifyAdminMfa()">Verify and open Admin</button>
-      <button class="link-btn" style="margin-top:14px;width:100%;" onclick="logoutAdmin()">Sign out</button>
-    </div>
-  </div>`;
   if (astate.recoveryMode) return `
   <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
     <div class="overlay-card" style="max-width:340px;margin:0 auto;">
@@ -1905,20 +1949,20 @@ function renderLogin() {
   <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
     <div class="overlay-card" style="max-width:340px;margin:0 auto;">
       <div class="display overlay-title">Shop access</div>
-      <div class="overlay-sub">Sign in with the Gmail and password linked to your Supabase account.</div>
+      <div class="overlay-sub">Enter your authorised email. We will send a private 6-digit login code.</div>
       <input type="email" placeholder="tinghuioh29@gmail.com" value="${escapeHtml(astate.loginEmail)}"
-        oninput="astate.loginEmail=this.value; astate.loginMessage='';"
+        oninput="astate.loginEmail=this.value; astate.loginOtpSent=false; astate.loginOtpCode=''; astate.loginMessage='';"
         style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
-      <input type="password" autocomplete="current-password" placeholder="Your password" value=""
-        oninput="astate.loginPassword=this.value; astate.loginMessage='';"
-        onkeydown="if(event.key==='Enter') loginWithPassword();"
-        style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
+      ${astate.loginOtpSent ? `<input inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" value="${escapeHtml(astate.loginOtpCode)}"
+        oninput="astate.loginOtpCode=this.value.replace(/[^0-9]/g,'').slice(0,6); astate.loginMessage='';"
+        onkeydown="if(event.key==='Enter') verifyEmailLoginCode();"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;text-align:center;font-size:20px;letter-spacing:.22em;">` : ""}
       ${astate.loginMessage ? `<div class="hint" style="text-align:left;line-height:1.45;margin:0 0 10px;">${escapeHtml(astate.loginMessage)}</div>` : ""}
       <div class="btn-row">
         <a href="index.html" style="flex:1;"><button class="btn-secondary" style="width:100%;">Cancel</button></a>
-        <button class="btn-primary" onclick="loginWithPassword()">Sign in</button>
+        ${astate.loginOtpSent ? `<button class="btn-primary" onclick="verifyEmailLoginCode()">Verify &amp; sign in</button>` : `<button class="btn-primary" onclick="sendEmailLoginCode()">Email me a code</button>`}
       </div>
-      <button class="link-btn" style="margin-top:14px;width:100%;" onclick="sendPasswordSetup()">First time here? Set or reset password</button>
+      ${astate.loginOtpSent ? `<button class="link-btn" style="margin-top:14px;width:100%;" onclick="sendEmailLoginCode()">Send a new code</button>` : ""}
     </div>
   </div>`;
 }
@@ -2124,7 +2168,7 @@ function setCostingMarket(market) {
 function newInventoryItem() { astate.inventoryDraft = { id: null, market_code: currentCostingMarket(), name: "", unit: "g", stock_quantity: 0, low_stock_level: 0, pack_size: 1, pack_cost: 0, supplier: "", cost_type: "ingredient" }; render(); }
 function editInventoryItem(id) { const item = astate.inventory.find((row) => String(row.id) === String(id)); astate.inventoryDraft = item ? { ...item } : null; render(); }
 function inventoryField(key, value) { if (!astate.inventoryDraft) return; astate.inventoryDraft[key] = ["stock_quantity","low_stock_level","pack_size","pack_cost"].includes(key) ? Math.max(0, Number(value || 0)) : value; }
-async function saveInventoryItem() { const d = astate.inventoryDraft; if (!d || !String(d.name).trim()) return alert("Enter the ingredient name."); const payload = { market_code: String(d.market_code || currentCostingMarket()).toUpperCase(), name: String(d.name).trim(), unit: String(d.unit || "g").trim(), stock_quantity: Number(d.stock_quantity || 0), low_stock_level: Number(d.low_stock_level || 0), pack_size: Math.max(.0001, Number(d.pack_size || 1)), pack_cost: Number(d.pack_cost || 0), supplier: String(d.supplier || "").trim() || null, cost_type: d.cost_type === "packaging" ? "packaging" : "ingredient" }; if (window.SLOW_STUDIO_DEMO_MODE) { const row={...payload,id:d.id||crypto.randomUUID()}; astate.inventory=d.id?astate.inventory.map((item)=>String(item.id)===String(d.id)?row:item):[...astate.inventory,row]; astate.inventoryDraft=null; render(); return alert("Demo inventory saved in this browser only."); } const result = d.id ? await db.from("inventory_items").update(payload).eq("id", d.id).select().single() : await db.from("inventory_items").insert(payload).select().single(); if (result.error) return alert("Could not save ingredient: " + result.error.message); astate.inventoryDraft = null; await loadAll(); }
+async function saveInventoryItem() { const d = astate.inventoryDraft; if (!d || !String(d.name).trim()) return alert("Enter the ingredient name."); const payload = { market_code: String(d.market_code || currentCostingMarket()).toUpperCase(), name: String(d.name).trim(), unit: String(d.unit || "g").trim(), stock_quantity: Number(d.stock_quantity || 0), low_stock_level: Number(d.low_stock_level || 0), pack_size: Math.max(.0001, Number(d.pack_size || 1)), pack_cost: Number(d.pack_cost || 0), supplier: String(d.supplier || "").trim() || null, cost_type: d.cost_type === "packaging" ? "packaging" : "ingredient" }; if (window.SLOW_STUDIO_DEMO_MODE) { const row={...payload,id:d.id||crypto.randomUUID()}; astate.inventory=d.id?astate.inventory.map((item)=>String(item.id)===String(d.id)?row:item):[...astate.inventory,row]; astate.inventoryDraft=null; render(); return alert("Demo inventory saved in this browser only."); } const result = d.id ? await db.from("inventory_items").update(payload).eq("id", d.id).select().single() : await db.from("inventory_items").insert(payload).select().single(); if (result.error) { const needsLogin=/row-level security|permission|jwt|aal2|email otp/i.test(String(result.error.message||"")); return alert(needsLogin ? "Your secure login has expired. Sign out, request a new 6-digit email code, then save the inventory item again." : "Could not save ingredient: " + result.error.message); } astate.inventoryDraft = null; await loadAll(); }
 async function deleteInventoryItem(id) { if (!confirm("Delete this ingredient and its recipe links?")) return; if (window.SLOW_STUDIO_DEMO_MODE) { astate.inventory=astate.inventory.filter((item)=>String(item.id)!==String(id)); astate.recipes=astate.recipes.filter((item)=>String(item.inventory_item_id)!==String(id)); render(); return; } const { error } = await db.from("inventory_items").delete().eq("id", id); if (error) return alert(error.message); await loadAll(); }
 function beginRecipeDraft(productId) {
   const product = astate.menu.find((row) => String(row.id) === String(productId));
