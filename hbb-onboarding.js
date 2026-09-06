@@ -37,8 +37,8 @@
     if(!state.email){const {data}=await client.auth.getUser();state.email=String(data?.user?.email||"").toLowerCase()}
     if(!state.email)return fail("The invitation email could not be read. Open the newest invitation link again.");
     state.step="email_code";state.code="";state.message="Sending your code…";render();
-    const {error}=await client.auth.signInWithOtp({email:state.email,options:{shouldCreateUser:false}});
-    state.message=error?`We could not send the code: ${error.message}`:"Code sent. Check Inbox and Spam.";render();
+    const {error}=await client.auth.signInWithOtp({email:state.email,options:{shouldCreateUser:false,emailRedirectTo:`${location.origin}${location.pathname}${location.search}`}});
+    state.message=error?`We could not send the code: ${error.message}`:"Login email sent. Enter its 6-digit code, or tap the secure sign-in link in that email.";render();
   }
   async function verifyEmailCode(){
     const token=String(state.code||"").replace(/\D/g,"").slice(0,6);

@@ -1218,7 +1218,10 @@ async function sendEmailLoginCode() {
   const email = String(astate.loginEmail || "").trim().toLowerCase();
   const { error } = await db.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false },
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${window.location.origin}${window.location.pathname}${window.location.search}`,
+    },
   });
   if (error) {
     astate.loginOtpSent = false;
@@ -1226,7 +1229,7 @@ async function sendEmailLoginCode() {
   } else {
     astate.loginOtpSent = true;
     astate.loginOtpCode = "";
-    astate.loginMessage = `A 6-digit code was sent to ${email}. Check Inbox and Spam.`;
+    astate.loginMessage = `Login email sent to ${email}. Enter the 6-digit code, or tap the secure sign-in link in that email.`;
   }
   render();
 }
@@ -1949,7 +1952,7 @@ function renderLogin() {
   <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
     <div class="overlay-card" style="max-width:340px;margin:0 auto;">
       <div class="display overlay-title">Shop access</div>
-      <div class="overlay-sub">Enter your authorised email. We will send a private 6-digit login code.</div>
+      <div class="overlay-sub">Enter your authorised email. We will send a private login email. You can enter its 6-digit code or tap its secure sign-in link.</div>
       <input type="email" placeholder="tinghuioh29@gmail.com" value="${escapeHtml(astate.loginEmail)}"
         oninput="astate.loginEmail=this.value; astate.loginOtpSent=false; astate.loginOtpCode=''; astate.loginMessage='';"
         style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
