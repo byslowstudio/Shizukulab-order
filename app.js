@@ -335,9 +335,14 @@ function uidCode() { return "SL-" + Math.random().toString(36).slice(2, 8).toUpp
 function cleanPhoneInput(value) { return String(value || "").replace(/[^0-9+\-\s]/g, ""); }
 function normalisePhone(value) {
   const digits = String(value || "").replace(/\D/g, "");
+  if (state.market === "MY") {
+    if (digits.startsWith("60")) return digits;
+    if (digits.startsWith("0")) return "60" + digits.slice(1);
+    return "60" + digits;
+  }
   return digits.length === 10 && digits.startsWith("65") ? digits.slice(2) : digits;
 }
-function isValidPhone(value) { return /^[689]\d{7}$/.test(normalisePhone(value)); }
+function isValidPhone(value) { return (state.market === "MY" ? /^601\d{8,9}$/ : /^[689]\d{7}$/).test(normalisePhone(value)); }
 function normaliseTime(time) { return time ? String(time).replace(/\s+/g, " ").trim() : ""; }
 function formatDateForDatabase(date) {
   const y = date.getFullYear(), m = String(date.getMonth() + 1).padStart(2, "0"), d = String(date.getDate()).padStart(2, "0");
@@ -1025,7 +1030,7 @@ function setCategory(category) {
 async function applyPromoCode() {
   const code = (state.form.promoCode || "").trim().toUpperCase();
   if (!code) { state.promoMsg = "Please enter a promo code."; render(); return; }
-  if (!isValidPhone(state.form.phone)) { state.promoMsg = "Enter a valid Singapore phone number first."; render(); return; }
+  if (!isValidPhone(state.form.phone)) { state.promoMsg = state.market === "MY" ? "Enter a valid Malaysia mobile number, e.g. 0121234567." : "Enter a valid Singapore phone number first."; render(); return; }
   if (!IS_CONFIGURED) { state.promoMsg = "Connect Supabase to validate promo codes."; render(); return; }
 
   try {
@@ -1073,7 +1078,7 @@ function removePromoCode() { state.promo = null; state.promoMsg = ""; state.form
 async function submitOrder() {
   const f = state.form;
   if (!f.name.trim()) { alert("Please enter your name."); return; }
-  if (!isValidPhone(f.phone)) { alert("Please enter a valid Singapore phone number (for example, 91234567)."); return; }
+  if (!isValidPhone(f.phone)) { alert(state.market === "MY" ? "Please enter a valid Malaysia mobile number (for example, 0121234567 or +60121234567)." : "Please enter a valid Singapore phone number (for example, 91234567)."); return; }
   if (state.store.show_checkout_email !== false && f.email && !/^\S+@\S+\.\S+$/.test(f.email.trim())) { alert("Please enter a valid email address, or leave it blank."); return; }
   if (!f.slotId) { alert("Please select a pickup slot."); return; }
   if (!f.collectionPoint) { alert("Please select a collection point."); return; }
@@ -1679,7 +1684,7 @@ function renderCheckout() {
     <div class="screen">
       <button class="back-link" onclick="setScreen('cart')">${ICONS.back} Back to cart</button>
       <div class="field"><label>Name</label><input id="f-name" value="${escapeHtml(f.name)}" placeholder="Your name" oninput="onFormInput('name', this.value)"></div>
-      <div class="field"><label>Phone</label><input id="f-phone" value="${escapeHtml(f.phone)}" placeholder="e.g. 91234567" inputmode="tel" autocomplete="tel" oninput="this.value=cleanPhoneInput(this.value);onFormInput('phone', this.value)"></div>
+      <div class="field"><label for="f-phone">Phone · ${state.market === "MY" ? "+60 Malaysia" : "+65 Singapore"}</label><input id="f-phone" value="${escapeHtml(f.phone)}" placeholder="${state.market === "MY" ? "e.g. 0121234567" : "e.g. 91234567"}" inputmode="tel" autocomplete="tel" oninput="this.value=cleanPhoneInput(this.value);onFormInput('phone', this.value)">${state.market === "MY" ? '<small>Enter 0121234567 or +60121234567. Saved with country code +60.</small>' : ''}</div>
       ${state.store.show_checkout_email === false ? "" : `<div class="field"><label>Email (for order confirmation)</label><input id="f-email" type="email" value="${escapeHtml(f.email)}" placeholder="you@example.com" autocomplete="email" oninput="onFormInput('email', this.value)"><div class="hint" style="text-align:left;margin-top:5px;">Enter an email to receive order updates.</div></div>`}
       ${state.store.show_checkout_instagram === false ? "" : `<div class="field"><label>Instagram (optional)</label><input id="f-instagram" value="${escapeHtml(f.instagram)}" placeholder="@yourhandle" oninput="onFormInput('instagram', this.value)"></div>`}
       <div class="field"><label>Collection date</label>
