@@ -21,8 +21,8 @@
     if(!data?.user){state.step="error";state.message="Open the newest Slow Studio invitation link from your email.";return render()}
     state.email=String(data.user.email||"").toLowerCase();
     const {data:sessionData}=await client.auth.getSession();
-    if(jwtUsesSupportedLogin(sessionData?.session)) return acceptInvite();
     if(arrivedFromInvite){state.step="password";state.message="";return render()}
+    if(jwtUsesSupportedLogin(sessionData?.session)) return acceptInvite();
     state.step="error";state.message="Sign in with your email and password from your Admin page.";return render();
   }
   function field(key,value){state[key]=value}
@@ -53,6 +53,7 @@
     const {error}=await client.rpc("accept_slow_studio_hbb_invitation");if(error)return fail(error.message);
     const {data,error:listError}=await client.from("slow_studio_workspaces").select("id,name,country_code,currency_code,status").order("created_at");if(listError)return fail(listError.message);
     state.workspaces=data||[];state.step="ready";state.message="";render();
+    const link=document.createElement('a');link.href='/hbb-admin.html';link.textContent='Open my HBB setup backend';link.className='btn secondary';app.appendChild(link);
   }
   function fail(message){state.step="error";state.message=message||"Could not complete setup.";render()}
   async function signOut(){await client.auth.signOut();location.href="/"}

@@ -173,7 +173,19 @@
     await syncCloudWorkspaces();
     if (inviteError || inviteResult?.ok === false) alert("The isolated HBB workspace was created, but the invitation email could not be sent: " + (inviteResult?.error || inviteError?.message || "Unknown error") + "\n\nThe invitation remains Pending and can be sent again.");
     else if (inviteResult?.already_registered) alert("HBB workspace created. This owner already has a Slow Studio login; ask them to sign in and accept the workspace invitation.");
-    else alert("HBB workspace created and a secure setup invitation was emailed to the owner. They must set a password and Authenticator code before workspace data opens.");
+    else alert("HBB workspace created and a secure setup invitation was emailed to the owner. They can set their own password and sign in with email and password. Live ordering must be verified before launch.");
+  }
+
+  async function sendOwnerInvite(id) {
+    const item=workspace(id);
+    if(accountBusy || !productionClient || !item?.inviteEmail)return;
+    accountBusy=true;
+    try {
+      const {data,error}=await productionClient.functions.invoke("invite-hbb-owner",{body:{email:item.inviteEmail,redirect_to:`${location.origin}/hbb-onboarding.html`}});
+      if(error || data?.ok===false)throw new Error(data?.error||error?.message||"Invitation failed");
+      alert(data?.already_registered?"This owner already has a login. They can sign in at /hbb-admin.html with their email and password.":"Setup invitation sent. The owner can choose their own password.");
+    } catch(error) { alert("Could not send invitation: "+error.message); }
+    finally { accountBusy=false; }
   }
 
   async function copyDemoLink(market) {
@@ -253,7 +265,7 @@
       const actions = isDemo
         ? `<a class="ss-btn" href="${esc(item.adminUrl)}">Try admin</a><button class="ss-btn purple" onclick="SlowStudio.copyDemoLink('${item.id.endsWith("my") ? "MY" : "SG"}')">Copy demo link</button><a class="ss-btn" href="${esc(item.customerUrl)}" target="_blank">View demo shop ↗</a>`
         : isCloud
-          ? `<button class="ss-btn" disabled>${item.inviteStatus === "pending" ? "Awaiting owner" : "Open workspace"}</button>`
+          ? `<a class="ss-btn" href="/hbb-admin.html?workspace=${encodeURIComponent(item.id)}">Open setup backend</a>${item.inviteStatus==='pending'?`<button class="ss-btn" onclick="SlowStudio.sendOwnerInvite('${esc(item.id)}')">Send setup invitation</button>`:''}`
           : `<a class="ss-btn" href="${esc(item.adminUrl)}">Open admin</a><a class="ss-btn" href="${esc(item.customerUrl)}" target="_blank">View shop ↗</a>`;
       const icon = item.logoVisible!==false&&item.logoUrl?`<img src="${esc(item.logoUrl)}" alt="">`:isDemo ? (item.id.endsWith("my") ? "D-MY" : "D-SG") : item.market.startsWith("Malaysia") ? "MY" : "SG";
       const logoControls=`<label class="ss-btn">Upload logo<input type="file" accept="image/*" hidden onchange="SlowStudio.uploadWorkspaceLogo(this,'${esc(item.id)}')"></label><button class="ss-btn" onclick="SlowStudio.toggleWorkspaceLogo('${esc(item.id)}',${item.logoVisible===false?"true":"false"})">${item.logoVisible===false?"Show logo":"Hide logo"}</button>`;
@@ -279,7 +291,7 @@
     document.querySelector(".ss-mark").innerHTML = '<img src="lumi-slow-studio.png" alt="Lumi">';
   }
 
-  window.SlowStudio = { setPanel,setVisibility,setIssueStatus,setIssueNote,resetDemo,copyDemoLink,openAccountDialog,closeAccountDialog,createHbbAccount,toggleWorkspaceLogo,uploadWorkspaceLogo,refreshCapacity:syncCapacity };
+  window.SlowStudio = { setPanel,setVisibility,setIssueStatus,setIssueNote,resetDemo,copyDemoLink,openAccountDialog,closeAccountDialog,createHbbAccount,sendOwnerInvite,toggleWorkspaceLogo,uploadWorkspaceLogo,refreshCapacity:syncCapacity };
   render();
   syncProductionVisibility();
   syncCloudWorkspaces();
