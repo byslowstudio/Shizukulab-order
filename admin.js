@@ -1375,9 +1375,10 @@ async function checkAdminSession(skipMfa = false) {
       claims = JSON.parse(atob(encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=")));
     } catch (_) {}
     const emailOtp = Array.isArray(claims.amr) && claims.amr.some((entry) => entry?.method === "otp");
-    if (claims.aal !== "aal2" && !emailOtp) {
+    const passwordLogin = Array.isArray(claims.amr) && claims.amr.some((entry) => entry?.method === "password");
+    if (claims.aal !== "aal2" && !emailOtp && !passwordLogin) {
       await db.auth.signOut();
-      astate.loginMessage = "For security, request a fresh 6-digit code from your email to open Admin.";
+      astate.loginMessage = "Please sign in again with your email and password.";
       astate.loginOtpSent = false;
       render();
       return;
@@ -1952,20 +1953,16 @@ function renderLogin() {
   <div class="overlay" style="position:relative;background:none;align-items:flex-start;padding:60px 16px;">
     <div class="overlay-card" style="max-width:340px;margin:0 auto;">
       <div class="display overlay-title">Shop access</div>
-      <div class="overlay-sub">Enter your authorised email. We will send a private login email. You can enter its 6-digit code or tap its secure sign-in link.</div>
+      <div class="overlay-sub">Sign in with your authorised email and your own password.</div>
       <input type="email" placeholder="tinghuioh29@gmail.com" value="${escapeHtml(astate.loginEmail)}"
         oninput="astate.loginEmail=this.value; astate.loginOtpSent=false; astate.loginOtpCode=''; astate.loginMessage='';"
         style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
-      ${astate.loginOtpSent ? `<input inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" value="${escapeHtml(astate.loginOtpCode)}"
-        oninput="astate.loginOtpCode=this.value.replace(/[^0-9]/g,'').slice(0,6); astate.loginMessage='';"
-        onkeydown="if(event.key==='Enter') verifyEmailLoginCode();"
-        style="width:100%;padding:12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;text-align:center;font-size:20px;letter-spacing:.22em;">` : ""}
+      <input type="password" autocomplete="current-password" placeholder="Password" oninput="astate.loginPassword=this.value;" onkeydown="if(event.key==='Enter') loginWithPassword();" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
       ${astate.loginMessage ? `<div class="hint" style="text-align:left;line-height:1.45;margin:0 0 10px;">${escapeHtml(astate.loginMessage)}</div>` : ""}
       <div class="btn-row">
         <a href="index.html" style="flex:1;"><button class="btn-secondary" style="width:100%;">Cancel</button></a>
-        ${astate.loginOtpSent ? `<button class="btn-primary" onclick="verifyEmailLoginCode()">Verify &amp; sign in</button>` : `<button class="btn-primary" onclick="sendEmailLoginCode()">Email me a code</button>`}
+        <button class="btn-primary" onclick="loginWithPassword()">Sign in</button>
       </div>
-      ${astate.loginOtpSent ? `<button class="link-btn" style="margin-top:14px;width:100%;" onclick="sendEmailLoginCode()">Send a new code</button>` : ""}
     </div>
   </div>`;
 }
