@@ -188,6 +188,10 @@ const state = {
     touchngo_number: "",
     touchngo_qr_url: "",
     malaysia_collection_points: [],
+    malaysia_collection_point_details: [],
+    malaysia_collection_address: "",
+    malaysia_collection_area_label: "",
+    malaysia_google_maps_url: "",
   },
   form: { name: "", phone: "", email: "", instagram: "", pickupDate: "", slotId: "", collectionPoint: "", notes: "", promoCode: "", marketingOptIn: false },
   promo: null,
@@ -240,7 +244,10 @@ function applyStorefrontThemeVariables() {
   document.body.style.backgroundColor = s.theme_background_color || "#F3EEE3";
   document.body.style.color = s.theme_text_color || "#2A2A22";
 }
-function originalPrice(item) { return Number(state.market === "MY" && item?.myr_price != null ? item.myr_price : item?.price || 0); }
+function originalPrice(item) {
+  if (state.market === "MY") return item?.myr_price == null ? 0 : Number(item.myr_price || 0);
+  return Number(item?.price || 0);
+}
 function storewideSaleApplies(item) {
   if (!state.store.storewide_sale_enabled) return false;
   const scope = String(state.store.storewide_sale_scope || "all");
@@ -270,15 +277,28 @@ function safeExternalUrl(value) {
   const text = String(value || "").trim();
   return /^https?:\/\//i.test(text) ? text : "";
 }
+function marketCollectionSettings() {
+  const malaysia = state.market === "MY";
+  const points = malaysia ? state.store.malaysia_collection_points : state.store.collection_points;
+  const details = malaysia ? state.store.malaysia_collection_point_details : state.store.collection_point_details;
+  return {
+    points: Array.isArray(points) ? points : [],
+    details: Array.isArray(details) ? details : [],
+    area: String(malaysia ? state.store.malaysia_collection_area_label || "" : state.store.collection_area_label || "").trim(),
+    address: String(malaysia ? state.store.malaysia_collection_address || "" : state.store.collection_address || "").trim(),
+    mapsUrl: String(malaysia ? state.store.malaysia_google_maps_url || "" : state.store.google_maps_url || "").trim(),
+  };
+}
 function collectionPointInfo(pointName) {
   const point = String(pointName || "").trim();
-  const details = Array.isArray(state.store.collection_point_details) ? state.store.collection_point_details : [];
+  const settings = marketCollectionSettings();
+  const details = settings.details;
   const match = details.find((item) => String(item?.name || "").trim().toLowerCase() === point.toLowerCase()) || {};
   return {
     name: point || String(match.name || "Collection point"),
-    area: String(match.area || point || state.store.collection_area_label || "").trim(),
-    address: String(match.address || state.store.collection_address || "").trim(),
-    mapsUrl: String(match.google_maps_url || state.store.google_maps_url || "").trim()
+    area: String(match.area || point || settings.area || "").trim(),
+    address: String(match.address || settings.address || "").trim(),
+    mapsUrl: String(match.google_maps_url || settings.mapsUrl || "").trim()
   };
 }
 function collectionMapsUrl(info = collectionPointInfo("")) {
@@ -293,7 +313,8 @@ function collectionMapEmbedUrl(info) {
 }
 function homeCollectionMapCard() {
   if (state.store.show_collection_map_home === false) return "";
-  const points = Array.isArray(state.store.collection_points) && state.store.collection_points.length ? state.store.collection_points : [state.store.collection_area_label].filter(Boolean);
+  const settings = marketCollectionSettings();
+  const points = settings.points.length ? settings.points : [settings.area].filter(Boolean);
   if (!points.length) return "";
   return `<div class="collection-area-card"><div class="collection-area-list"><span class="collection-map-kicker">COLLECTION AREAS</span>${points.map((point) => { const info = collectionPointInfo(point); const url = collectionMapsUrl(info); return `<div class="collection-area-row"><strong>${escapeHtml(info.area || info.name)}</strong>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">View map ↗</a>` : ""}</div>`; }).join("")}<span>Exact pickup details are shown with your order.</span></div></div>`;
 }
@@ -581,10 +602,14 @@ function nextCollectionSchedule(limit = 2) {
 
 /* ---------- load products / options ---------- */
 async function loadProducts() {
-  let productResult = await db.from("products").select("*").eq("is_available", true).order("sort_order").order("id");
+  let productQuery = db.from("products").select("*");
+  productQuery = state.market === "MY" ? productQuery.eq("malaysia_available", true) : productQuery.eq("is_available", true);
+  let productResult = await productQuery.order("sort_order").order("id");
   // Keep the shop working before the one-time product sorting SQL is installed.
   if (productResult.error && /sort_order/i.test(productResult.error.message || "")) {
-    productResult = await db.from("products").select("*").eq("is_available", true).order("category").order("name");
+    let fallbackQuery = db.from("products").select("*");
+    fallbackQuery = state.market === "MY" ? fallbackQuery.eq("malaysia_available", true) : fallbackQuery.eq("is_available", true);
+    productResult = await fallbackQuery.order("category").order("name");
   }
   const { data, error } = productResult;
   if (error) throw error;
@@ -601,7 +626,7 @@ async function loadProducts() {
   applyMarketMenu();
 }
 function applyMarketMenu() {
-  state.menu = state.allMenu.filter((item) => state.market !== "MY" || item.malaysia_available === true);
+  state.menu = state.allMenu.filter((item) => state.market !== "MY" || (item.malaysia_available === true && item.myr_price != null && Number.isFinite(Number(item.myr_price))));
 }
 function setMarket(market) {
   const next = market === "MY" && state.store.malaysia_enabled === true ? "MY" : "SG";

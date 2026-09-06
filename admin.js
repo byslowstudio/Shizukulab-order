@@ -3,7 +3,7 @@
 const ADMIN_WORKSPACE_MARKET = new URLSearchParams(window.location.search).get("market") === "MY" || /\/(workspace\/shizuku-lab-my|demo\/malaysia)(?:\/|$)/i.test(window.location.pathname) ? "MY" : "SG";
 const ADMIN_CUSTOMER_SHOP_URL = window.SLOW_STUDIO_DEMO_MODE
   ? (ADMIN_WORKSPACE_MARKET === "MY" ? "/demo/malaysia/shop" : "/demo/singapore/shop")
-  : (ADMIN_WORKSPACE_MARKET === "MY" ? "/shop/shizuku-lab-my" : "https://shizuku-lab-order.vercel.app/shop/shizuku-lab-sg");
+  : (ADMIN_WORKSPACE_MARKET === "MY" ? "/welcome/shizuku-lab-my" : "https://shizuku-lab-order.vercel.app/shop/shizuku-lab-sg");
 
 const astate = {
   unlocked: false,
@@ -574,8 +574,9 @@ async function updateOrderStatus(id, order_status, skipConfirmation = false) {
       astate.orders = astate.orders.map((o) => (String(o.id) === String(id) ? { ...o, order_status: previousStatus } : o));
       render();
       alert("Could not update this order: " + error.message);
-    } else if (order_status === "collected") {
+    } else if (order_status === "ready") {
       await refreshLoyaltyBalances();
+      render();
     }
   }
 }
@@ -652,7 +653,7 @@ async function bulkUpdateOrderStatus(status) {
   }
   astate.selectedOrderIds = [];
   astate.bulkOrderMode = false;
-  if (status === "collected") await refreshLoyaltyBalances();
+  if (status === "ready") await refreshLoyaltyBalances();
   render();
   if (skipped) alert(`${eligible.length} updated. ${skipped} incompatible order(s) were safely skipped.`);
 }
@@ -795,7 +796,10 @@ function removeMarketingAttachment() {
 async function saveMenuItem() {
   const item = astate.editing;
   if (!item.name.trim()) { alert("Name is required."); return; }
-  if (ADMIN_WORKSPACE_MARKET === "MY") item.malaysia_available = true;
+  if (ADMIN_WORKSPACE_MARKET === "MY" && item.malaysia_available !== false && (item.myr_price == null || item.myr_price === "" || !Number.isFinite(Number(item.myr_price)))) {
+    alert("Enter the Malaysia price in MYR before showing this item on the Malaysia menu.");
+    return;
+  }
   if (!IS_CONFIGURED) {
     if (window.SLOW_STUDIO_DEMO_MODE) {
       const saved={...item,id:item.id||`demo-${Date.now()}`};
@@ -1030,23 +1034,26 @@ function renderDrinkOptionsManager() {
 
 /* ---- store settings ---- */
 function onSettingsField(key, value) { astate.settingsDraft[key] = value; }
+function collectionSettingsKey(base) { return ADMIN_WORKSPACE_MARKET === "MY" ? `malaysia_${base}` : base; }
 function settingsCollectionPoints() {
-  const points = astate.settingsDraft?.collection_points;
-  return Array.isArray(points) && points.length ? points : ["Blk 130A", "Near Creamier"];
+  const points = astate.settingsDraft?.[collectionSettingsKey("collection_points")];
+  return Array.isArray(points) && points.length ? points : (ADMIN_WORKSPACE_MARKET === "MY" ? [] : ["Blk 130A", "Near Creamier"]);
 }
 function settingsCollectionPointDetails() {
-  const saved = Array.isArray(astate.settingsDraft?.collection_point_details) ? astate.settingsDraft.collection_point_details : [];
+  const key = collectionSettingsKey("collection_point_details");
+  const saved = Array.isArray(astate.settingsDraft?.[key]) ? astate.settingsDraft[key] : [];
   return settingsCollectionPoints().map((name) => {
     const match = saved.find((item) => String(item?.name || "").trim().toLowerCase() === String(name).trim().toLowerCase()) || {};
     return { name, area: match.area || name, address: match.address || "", google_maps_url: match.google_maps_url || "" };
   });
 }
-function syncCollectionPointDetails(details) { astate.settingsDraft.collection_point_details = details; }
-function editCollectionPoint(index, value) { const points = [...settingsCollectionPoints()]; const details = settingsCollectionPointDetails(); points[index] = value; details[index] = { ...details[index], name: value }; astate.settingsDraft.collection_points = points; syncCollectionPointDetails(details); }
+function syncCollectionPointDetails(details) { astate.settingsDraft[collectionSettingsKey("collection_point_details")] = details; }
+function syncCollectionPoints(points) { astate.settingsDraft[collectionSettingsKey("collection_points")] = points; }
+function editCollectionPoint(index, value) { const points = [...settingsCollectionPoints()]; const details = settingsCollectionPointDetails(); points[index] = value; details[index] = { ...details[index], name: value }; syncCollectionPoints(points); syncCollectionPointDetails(details); }
 function editCollectionPointDetail(index, key, value) { const details = settingsCollectionPointDetails(); details[index] = { ...details[index], [key]: value }; syncCollectionPointDetails(details); }
-function addCollectionPoint() { const name = "New collection point"; astate.settingsDraft.collection_points = [...settingsCollectionPoints(), name]; syncCollectionPointDetails([...settingsCollectionPointDetails(), { name, area: name, address: "", google_maps_url: "" }]); render(); }
-function deleteCollectionPoint(index) { const points = [...settingsCollectionPoints()]; const details = settingsCollectionPointDetails(); if (points.length <= 1) return alert("Keep at least one collection point."); points.splice(index, 1); details.splice(index, 1); astate.settingsDraft.collection_points = points; syncCollectionPointDetails(details); render(); }
-function moveCollectionPoint(index, direction) { const points = [...settingsCollectionPoints()]; const details = settingsCollectionPointDetails(); const next = index + direction; if (next < 0 || next >= points.length) return; [points[index], points[next]] = [points[next], points[index]]; [details[index], details[next]] = [details[next], details[index]]; astate.settingsDraft.collection_points = points; syncCollectionPointDetails(details); render(); }
+function addCollectionPoint() { const name = "New collection point"; syncCollectionPoints([...settingsCollectionPoints(), name]); syncCollectionPointDetails([...settingsCollectionPointDetails(), { name, area: name, address: "", google_maps_url: "" }]); render(); }
+function deleteCollectionPoint(index) { const points = [...settingsCollectionPoints()]; const details = settingsCollectionPointDetails(); if (points.length <= 1) return alert("Keep at least one collection point."); points.splice(index, 1); details.splice(index, 1); syncCollectionPoints(points); syncCollectionPointDetails(details); render(); }
+function moveCollectionPoint(index, direction) { const points = [...settingsCollectionPoints()]; const details = settingsCollectionPointDetails(); const next = index + direction; if (next < 0 || next >= points.length) return; [points[index], points[next]] = [points[next], points[index]]; [details[index], details[next]] = [details[next], details[index]]; syncCollectionPoints(points); syncCollectionPointDetails(details); render(); }
 function updateStorefrontPreview() {
   const circle = document.getElementById("logo-live-preview");
   const logo = document.getElementById("logo-live-preview-image");
@@ -2043,12 +2050,19 @@ function setOrderSearch(value) { astate.orderSearch = value; render(); }
 function offlineReasonLabel(value) {
   return ({ influencer_tasting: "Influencer tasting", complimentary: "Complimentary", replacement: "Replacement", manual_sale: "Offline paid sale", other: "Other" })[value] || "Offline order";
 }
+function adminMarketCollectionPoints(settings = astate.settings) {
+  const key = ADMIN_WORKSPACE_MARKET === "MY" ? "malaysia_collection_points" : "collection_points";
+  return Array.isArray(settings?.[key]) ? settings[key] : [];
+}
+function adminMarketProductPrice(product) {
+  return Number(ADMIN_WORKSPACE_MARKET === "MY" ? (product?.myr_discount_price ?? product?.myr_price ?? 0) : (product?.discount_price ?? product?.price ?? 0));
+}
 function openOfflineOrder() {
-  const firstProduct = astate.menu.find((item) => item.is_available !== false) || astate.menu[0];
+  const firstProduct = astate.menu.find((item) => ADMIN_WORKSPACE_MARKET === "MY" ? item.malaysia_available === true : item.is_available !== false) || astate.menu[0];
   astate.offlineOrderDraft = {
     customer_name: "", customer_phone: "", collection_date: localDateText(new Date()), collection_time: "",
-    collection_point: (astate.settings?.collection_points || [])[0] || "", offline_reason: "influencer_tasting", counts_as_sale: false,
-    notes: "", items: firstProduct ? [{ product_id: firstProduct.id, product_name: firstProduct.name, quantity: 1, unit_price: Number(firstProduct.discount_price || firstProduct.price || 0) }] : []
+    collection_point: adminMarketCollectionPoints()[0] || "", offline_reason: "influencer_tasting", counts_as_sale: false,
+    notes: "", items: firstProduct ? [{ product_id: firstProduct.id, product_name: firstProduct.name, quantity: 1, unit_price: adminMarketProductPrice(firstProduct) }] : []
   };
   render();
 }
@@ -2060,8 +2074,8 @@ function offlineOrderField(key, value) {
   if (key === "offline_reason" && value === "manual_sale") astate.offlineOrderDraft.counts_as_sale = true;
   render();
 }
-function addOfflineOrderItem() { const p = astate.menu.find((item) => item.is_available !== false) || astate.menu[0]; if (p) { astate.offlineOrderDraft.items.push({ product_id:p.id,product_name:p.name,quantity:1,unit_price:Number(p.discount_price||p.price||0) }); render(); } }
-function chooseOfflineProduct(index, id) { const p=astate.menu.find((item)=>String(item.id)===String(id)); const row=astate.offlineOrderDraft?.items?.[index]; if(p&&row){row.product_id=p.id;row.product_name=p.name;row.unit_price=Number(p.discount_price||p.price||0);render();} }
+function addOfflineOrderItem() { const p = astate.menu.find((item) => ADMIN_WORKSPACE_MARKET === "MY" ? item.malaysia_available === true : item.is_available !== false) || astate.menu[0]; if (p) { astate.offlineOrderDraft.items.push({ product_id:p.id,product_name:p.name,quantity:1,unit_price:adminMarketProductPrice(p) }); render(); } }
+function chooseOfflineProduct(index, id) { const p=astate.menu.find((item)=>String(item.id)===String(id)); const row=astate.offlineOrderDraft?.items?.[index]; if(p&&row){row.product_id=p.id;row.product_name=p.name;row.unit_price=adminMarketProductPrice(p);render();} }
 function offlineItemField(index,key,value) { const row=astate.offlineOrderDraft?.items?.[index]; if(row){row[key]=Math.max(0,Number(value||0));render();} }
 function removeOfflineItem(index) { astate.offlineOrderDraft?.items?.splice(index,1); render(); }
 function offlineOrderCode() { return `SL-O${Math.random().toString(36).slice(2,7).toUpperCase()}`; }
@@ -2537,7 +2551,7 @@ function renderMalaysiaTab() {
   const s = astate.settingsDraft || {};
   const points = Array.isArray(s.malaysia_collection_points) ? s.malaysia_collection_points.join("\n") : "";
   return `<section class="dashboard-card" style="padding:22px;max-width:920px"><div class="dashboard-card-head" style="padding:0 0 17px"><div><h2>Malaysia ordering</h2><span>A separate MYR storefront option for Touch ’n Go orders</span></div><span>${s.malaysia_enabled === true ? "On" : "Off"}</span></div>
-    <label class="slot" style="cursor:pointer;gap:10px;margin:15px 0"><input type="checkbox" style="width:auto" ${s.malaysia_enabled === true ? "checked" : ""} onchange="onSettingsField('malaysia_enabled',this.checked);render()"><span><b>Turn on Malaysia ordering 🌍</b><br><span class="hint" style="margin:0">When on, customers can switch between Singapore · SGD and Malaysia · MYR. Existing Singapore prices and PayNow settings stay unchanged.</span></span></label>
+    <label class="slot" style="cursor:pointer;gap:10px;margin:15px 0"><input type="checkbox" style="width:auto" ${s.malaysia_enabled === true ? "checked" : ""} onchange="onSettingsField('malaysia_enabled',this.checked);render()"><span><b>Turn on the separate Malaysia ordering site</b><br><span class="hint" style="margin:0">Malaysia has its own customer link, MYR prices, collection details, availability, inventory and Touch ’n Go settings. Singapore stays separate.</span></span></label>
     <div class="divider"></div><div class="display" style="font-size:20px;margin-bottom:12px">Touch ’n Go payment</div>
     <div class="field"><label>Touch ’n Go account name</label><input value="${escapeHtml(s.touchngo_name || "")}" placeholder="Your account name" oninput="onSettingsField('touchngo_name',this.value)"></div>
     <div class="field"><label>Touch ’n Go phone number</label><input value="${escapeHtml(s.touchngo_number || "")}" placeholder="e.g. 60123456789" oninput="onSettingsField('touchngo_number',this.value)"></div>
@@ -2974,6 +2988,9 @@ function renderSettingsTab() {
   const hiddenTitleKey = DASHBOARD_MARKET === "MY" ? "malaysia_website_hidden_title" : "website_hidden_title";
   const hiddenMessageKey = DASHBOARD_MARKET === "MY" ? "malaysia_website_hidden_message" : "website_hidden_message";
   const websiteVisibility = s[visibilityKey] || (DASHBOARD_MARKET === "MY" ? "hidden" : "live");
+  const collectionAreaKey = collectionSettingsKey("collection_area_label");
+  const collectionAddressKey = collectionSettingsKey("collection_address");
+  const collectionMapsKey = collectionSettingsKey("google_maps_url");
   const active = astate.settingsSection || "welcome";
   const sectionButton = (id, label) => `<button type="button" class="${active === id ? "btn-primary" : "btn-secondary"}" onclick="astate.settingsSection='${id}';render()">${label}</button>`;
   return `
@@ -3074,9 +3091,9 @@ function renderSettingsTab() {
     <div class="divider"></div>
     <div class="display" style="font-size:20px;margin:4px 0 8px;">Payment & collection</div>
     ${renderMarketPaymentSettings(s)}
-    ${field("Collection area shown on ordering homepage", "collection_area_label", "e.g. Near Creamier · Toa Payoh")}
-    ${field("Full collection address", "collection_address")}
-    ${field("Google Maps link (optional)", "google_maps_url", "https://maps.google.com/...")}
+    ${field(`${DASHBOARD_MARKET === "MY" ? "Malaysia" : "Singapore"} collection area shown on ordering homepage`, collectionAreaKey, DASHBOARD_MARKET === "MY" ? "e.g. Pontian · Johor" : "e.g. Near Creamier · Toa Payoh")}
+    ${field(`${DASHBOARD_MARKET === "MY" ? "Malaysia" : "Singapore"} full collection address`, collectionAddressKey)}
+    ${field("Google Maps link (optional)", collectionMapsKey, "https://maps.google.com/...")}
     <p class="hint" style="text-align:left;margin:-8px 0 12px;">If this is blank, the system creates a Google Maps search link from your full collection address.</p>
     <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:10px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_collection_map_home !== false ? "checked" : ""} onchange="onSettingsField('show_collection_map_home',this.checked)"><span><b>Show collection area on ordering homepage</b><br><span class="hint">Shows the short area only, not the full pickup details.</span></span></label>
     <label class="slot" style="cursor:pointer;gap:10px;margin-bottom:16px;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${s.show_collection_map_payment !== false ? "checked" : ""} onchange="onSettingsField('show_collection_map_payment',this.checked)"><span><b>Show Google Map on payment page</b><br><span class="hint">Shows the selected collection point, full address and map after checkout.</span></span></label>
@@ -3432,8 +3449,8 @@ function renderEditOverlay() {
       <div class="field"><label>Customisation shown for this drink</label><div class="hint" style="text-align:left;margin:0 0 7px;">Tick only the options that apply. Unticked groups will not appear to customers.</div>${astate.optionGroups.filter((group) => group.is_visible !== false).map((group) => `<label class="slot" style="cursor:pointer;gap:10px;margin:7px 0;"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${(item.enabled_option_group_ids || []).map(String).includes(String(group.id)) ? "checked" : ""} onchange="toggleProductOptionGroup('${group.id}',this.checked)"><span>${escapeHtml(group.name)}</span></label>`).join("")}</div>
       ${item.is_bundle ? `<div class="field"><label>Products customers can choose</label><div class="hint" style="text-align:left;margin:0 0 7px;">Tick each eligible drink. Leaving an override blank follows that product’s ${itemCurrency} price.</div>${astate.menu.filter((product) => String(product.id) !== String(item.id) && !product.is_bundle).map((product) => { const selected = Array.isArray(item.bundle_product_ids) && item.bundle_product_ids.map(String).includes(String(product.id)); const overrides = isMalaysiaAdmin ? item.bundle_myr_option_prices : item.bundle_option_prices; const override = overrides && Object.prototype.hasOwnProperty.call(overrides,String(product.id)) ? overrides[String(product.id)] : ""; const productPrice = Number(isMalaysiaAdmin ? (product.myr_discount_price || product.myr_price || 0) : (product.discount_price || product.price || 0)); const setter = isMalaysiaAdmin ? "setBundleMyrOptionPrice" : "setBundleOptionPrice"; return `<div class="slot bundle-admin-choice"><input type="checkbox" style="width:auto;accent-color:#4B5D3A;" ${selected ? "checked" : ""} onchange="toggleBundleProduct('${product.id}',this.checked);render()"><span>${escapeHtml(product.name)}<br><span class="hint" style="margin:0;">${itemCurrency} ${productPrice.toFixed(2)}</span></span>${item.bundle_pricing_mode === "sum_selected" && selected ? `<label><small>${itemCurrency}</small><input type="number" min="0" step="0.01" value="${escapeHtml(override)}" placeholder="${productPrice.toFixed(2)}" aria-label="${itemCurrency} Mix and Match price for ${escapeHtml(product.name)}" oninput="${setter}('${product.id}',this.value)"></label>` : `<span></span>`}</div>`; }).join("")}</div>` : ""}
       <div class="field" style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" id="avail-check" ${item.is_available ? "checked" : ""} onchange="onEditField('is_available', this.checked)" style="width:auto;">
-        <label style="margin:0;" for="avail-check">Available on menu</label>
+        <input type="checkbox" id="avail-check" ${(isMalaysiaAdmin ? item.malaysia_available : item.is_available) ? "checked" : ""} onchange="onEditField('${isMalaysiaAdmin ? "malaysia_available" : "is_available"}', this.checked)" style="width:auto;">
+        <label style="margin:0;" for="avail-check">Available on ${isMalaysiaAdmin ? "Malaysia" : "Singapore"} menu</label>
       </div>
       <div class="hint" style="text-align:left;margin-bottom:0;">Visible items show on the customer ordering page. Hidden items stay saved in your catalogue.</div>
       <div class="btn-row" style="margin-top:14px;">
@@ -3445,7 +3462,7 @@ function renderEditOverlay() {
 }
 
 function renderOfflineOrderEditor() {
-  const d=astate.offlineOrderDraft; const points=Array.isArray(astate.settings?.collection_points)?astate.settings.collection_points:[];
+  const d=astate.offlineOrderDraft; const pointKey=ADMIN_WORKSPACE_MARKET === "MY" ? "malaysia_collection_points" : "collection_points"; const points=Array.isArray(astate.settings?.[pointKey])?astate.settings[pointKey]:[];
   const subtotal=(d.items||[]).reduce((sum,row)=>sum+Number(row.quantity||0)*Number(row.unit_price||0),0);
   return `<div class="overlay"><div class="overlay-card" style="max-width:720px;max-height:88vh;overflow-y:auto"><div class="display overlay-title" style="font-size:20px">Create offline order</div><div class="hint" style="text-align:left;margin:0 0 14px">Use for influencer tasting, complimentary drinks, replacements or a paid walk-in sale. Inventory is still deducted.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div class="field"><label>Name / contact</label><input value="${escapeHtml(d.customer_name)}" oninput="astate.offlineOrderDraft.customer_name=this.value"></div><div class="field"><label>Phone (optional)</label><input value="${escapeHtml(d.customer_phone)}" oninput="astate.offlineOrderDraft.customer_phone=this.value"></div><div class="field"><label>Date</label><input type="date" value="${escapeHtml(d.collection_date)}" oninput="astate.offlineOrderDraft.collection_date=this.value"></div><div class="field"><label>Time</label><input value="${escapeHtml(d.collection_time)}" placeholder="11:30 AM" oninput="astate.offlineOrderDraft.collection_time=this.value"></div><div class="field"><label>Collection point</label><select onchange="astate.offlineOrderDraft.collection_point=this.value"><option value="">Not specified</option>${points.map(point=>`<option ${d.collection_point===point?"selected":""}>${escapeHtml(point)}</option>`).join("")}</select></div><div class="field"><label>Reason</label><select onchange="offlineOrderField('offline_reason',this.value)">${[["influencer_tasting","Influencer tasting"],["complimentary","Complimentary"],["replacement","Replacement"],["manual_sale","Offline paid sale"],["other","Other"]].map(([v,l])=>`<option value="${v}" ${d.offline_reason===v?"selected":""}>${l}</option>`).join("")}</select></div></div><label class="slot" style="margin:4px 0 16px"><input type="checkbox" style="width:auto" ${d.counts_as_sale?"checked":""} onchange="offlineOrderField('counts_as_sale',this.checked)"><span><b>Count as sales revenue</b><br><span class="hint" style="margin:0">Leave off for free tasting, complimentary or replacement orders.</span></span></label><div class="order-top"><b>Products</b><button class="link-btn" onclick="addOfflineOrderItem()">+ Add product</button></div>${(d.items||[]).map((row,index)=>`<div style="display:grid;grid-template-columns:minmax(180px,1fr) 90px 110px auto;gap:8px;align-items:end;margin:9px 0"><div><label>Product</label><select onchange="chooseOfflineProduct(${index},this.value)">${astate.menu.map(p=>`<option value="${p.id}" ${String(p.id)===String(row.product_id)?"selected":""}>${escapeHtml(p.name)}</option>`).join("")}</select></div><div><label>Qty</label><input type="number" min="1" value="${row.quantity}" oninput="offlineItemField(${index},'quantity',this.value)"></div><div><label>Price</label><input type="number" min="0" step=".01" value="${row.unit_price}" oninput="offlineItemField(${index},'unit_price',this.value)"></div><button class="link-danger" onclick="removeOfflineItem(${index})">Remove</button></div>`).join("")}<div class="field"><label>Internal notes</label><textarea rows="2" oninput="astate.offlineOrderDraft.notes=this.value">${escapeHtml(d.notes)}</textarea></div><div class="row bold"><span>${d.counts_as_sale?"Sales total":"Recorded as free / non-revenue"}</span><span>${money(d.counts_as_sale?subtotal:0)}</span></div><div class="btn-row" style="margin-top:15px"><button class="btn-secondary" onclick="closeOfflineOrder()">Cancel</button><button class="btn-primary" id="save-offline-order" onclick="saveOfflineOrder()">Create offline order</button></div></div></div>`;
 }
@@ -3455,7 +3472,7 @@ function renderOrderEditor() {
   const items = order.order_items || [];
   const subtotal = (items || []).filter((item) => !item._removed).reduce((sum,item) => sum + Number(item.quantity || 0) * Number(item.unit_price || 0),0);
   const discount = editedOrderDiscount(order, subtotal);
-  const editablePoints = [...new Set([...(Array.isArray(astate.settings?.collection_points) ? astate.settings.collection_points : ["Blk 130A","Near Creamier"]), order.collection_point].filter(Boolean))];
+  const editablePoints = [...new Set([...(adminMarketCollectionPoints().length ? adminMarketCollectionPoints() : (ADMIN_WORKSPACE_MARKET === "MY" ? [] : ["Blk 130A","Near Creamier"])), order.collection_point].filter(Boolean))];
   return `<div class="overlay"><div class="overlay-card" style="max-width:720px;max-height:88vh;overflow-y:auto"><div class="display overlay-title" style="font-size:20px">Edit ${escapeHtml(order.order_number || "order")}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div class="field"><label>Customer name</label><input value="${escapeHtml(order.customer_name || "")}" oninput="editOrderField('customer_name',this.value)"></div><div class="field"><label>Phone</label><input value="${escapeHtml(order.customer_phone || "")}" oninput="editOrderField('customer_phone',this.value)"></div><div class="field"><label>Instagram</label><input value="${escapeHtml(order.instagram || "")}" oninput="editOrderField('instagram',this.value)"></div><div class="field"><label>Collection date</label><input type="date" value="${escapeHtml(order.collection_date || "")}" oninput="editOrderField('collection_date',this.value)"></div><div class="field"><label>Collection time</label><input value="${escapeHtml(order.collection_time || "")}" oninput="editOrderField('collection_time',this.value)"></div><div class="field"><label>Collection point</label><select onchange="editOrderField('collection_point',this.value)">${editablePoints.map((point) => `<option value="${escapeHtml(point)}" ${order.collection_point === point ? "selected" : ""}>${escapeHtml(point)}</option>`).join("")}</select></div></div><div class="divider"></div><div class="order-top"><b>Order items</b><button class="link-btn" onclick="addOrderItem()">+ Add item</button></div>${items.map((item,index) => item._removed ? "" : `<div style="border:1px solid #e8ded1;border-radius:13px;padding:12px;margin:10px 0"><div class="field"><label>Product</label><select onchange="chooseOrderItemProduct(${index},this.value)">${astate.menu.map((product) => `<option value="${product.id}" ${String(product.id) === String(item.product_id) ? "selected" : ""}>${escapeHtml(product.name)}</option>`).join("")}</select></div><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:end"><div class="field" style="margin:0"><label>Quantity</label><input type="number" min="1" value="${Number(item.quantity || 1)}" oninput="editOrderItem(${index},'quantity',this.value)"></div><div class="field" style="margin:0"><label>Unit price ($)</label><input type="number" min="0" step="0.01" value="${Number(item.unit_price || 0)}" oninput="editOrderItem(${index},'unit_price',this.value)"></div><button class="link-danger" onclick="removeOrderItem(${index})">Remove</button></div>${(item.order_item_options || []).length ? `<div class="hint" style="text-align:left;margin-top:8px">Options: ${item.order_item_options.map((option) => escapeHtml(option.option_name)).join(", ")}</div>` : ""}</div>`).join("")}<div class="row"><span>Subtotal</span><span>${money(subtotal)}</span></div>${order._promoCode ? `<div class="row" style="color:#A36D1E"><span>Promo · ${escapeHtml(order._promoCode)}</span><span>−${money(discount)}</span></div>` : ""}<div class="row bold" style="margin:8px 0 14px"><span>Total</span><span>${money(Math.max(0,subtotal-discount))}</span></div><div class="field"><label>Customer notes</label><textarea rows="3" oninput="editOrderField('notes',this.value)">${escapeHtml(order.notes || "")}</textarea></div><div class="btn-row"><button class="btn-secondary" onclick="closeOrderEditor()">Cancel</button><button class="btn-primary" id="save-edited-order" onclick="saveEditedOrder()">Save order</button></div></div></div>`;
 }
 

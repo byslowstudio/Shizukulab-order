@@ -4,13 +4,12 @@
     workspaces: [
       { id:"shizuku-website", name:"Shizuku Lab Website", market:"Brand website", type:"Slow Studio website workspace", visibility:"live", connected:true, customerUrl:"/website/shizuku-lab", adminUrl:"/website/shizuku-lab/admin" },
       { id:"shizuku-sg", name:"Shizuku Lab", market:"Singapore · SGD", type:"Slow Studio workspace", visibility:"live", connected:true, customerUrl:"/shop/shizuku-lab-sg", adminUrl:"/workspace/shizuku-lab-sg" },
-      { id:"shizuku-my", name:"Shizuku Lab Malaysia", market:"Malaysia · MYR", type:"Slow Studio workspace", visibility:"hidden", connected:true, customerUrl:"/shop/shizuku-lab-my", adminUrl:"/workspace/shizuku-lab-my" },
+      { id:"shizuku-my", name:"Shizuku Lab Malaysia", market:"Malaysia · MYR", type:"Slow Studio workspace", visibility:"live", connected:true, customerUrl:"/welcome/shizuku-lab-my", adminUrl:"/workspace/shizuku-lab-my" },
       { id:"hbb-demo-sg", name:"Singapore HBB Demo", market:"Singapore · SGD · local", type:"HBB trial workspace", visibility:"demo", connected:false, customerUrl:"/demo/singapore/shop", adminUrl:"/demo/singapore" },
       { id:"hbb-demo-my", name:"Malaysia HBB Demo", market:"Malaysia · MYR · local", type:"HBB trial workspace", visibility:"demo", connected:false, customerUrl:"/demo/malaysia/shop", adminUrl:"/demo/malaysia" },
     ],
     issues: [
       { id:"issue-demo-1", workspaceId:"hbb-demo-sg", severity:"low", title:"Demo product photo was not added", detail:"User opened Add product but left the image field empty.", page:"Products", status:"open", note:"Show an image reminder inside the demo.", createdAt:new Date(Date.now()-35*60000).toISOString() },
-      { id:"issue-my-1", workspaceId:"shizuku-my", severity:"medium", title:"Malaysia storefront is hidden", detail:"The workspace is ready for setup but is not public yet.", page:"Storefront", status:"reviewing", note:"Complete MY prices, availability and Touch ’n Go before publishing.", createdAt:new Date(Date.now()-2*86400000).toISOString() },
     ],
     activity: [
       { text:"Owner console created for multiple HBB workspaces", at:new Date().toISOString() },

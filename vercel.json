@@ -7,6 +7,8 @@
     { "source": "/website/shizuku-lab", "destination": "/shizuku-website.html" },
     { "source": "/website/shizuku-lab/admin", "destination": "/cms.html" },
     { "source": "/welcome/shizuku-lab", "destination": "/index.html" },
+    { "source": "/welcome/shizuku-lab-sg", "destination": "/index.html" },
+    { "source": "/welcome/shizuku-lab-my", "destination": "/index.html?market=MY" },
     { "source": "/shop/shizuku-lab-sg", "destination": "/order.html" },
     { "source": "/shop/shizuku-lab-my", "destination": "/order.html?market=MY" },
     { "source": "/workspace/shizuku-lab-sg", "destination": "/admin.html" },

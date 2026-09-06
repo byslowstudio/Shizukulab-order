@@ -1,4 +1,6 @@
 (async function () {
+  const malaysiaWelcome = new URLSearchParams(window.location.search).get("market") === "MY" || /\/welcome\/shizuku-lab-my(?:\/|$)/i.test(window.location.pathname);
+  const shopPath = malaysiaWelcome ? "/shop/shizuku-lab-my" : "/shop/shizuku-lab-sg";
   const revealWelcome = () => document.body.classList.remove("welcome-loading");
   const fontStacks = {
     fraunces: "'Fraunces','Noto Serif JP',Georgia,serif",
@@ -9,6 +11,9 @@
   };
   const isInAppBrowser = /Instagram|FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(navigator.userAgent || "");
   const browserNotice = document.getElementById("inapp-browser-notice");
+  document.querySelector(".welcome-enter")?.setAttribute("href", shopPath);
+  document.querySelector(".welcome-track")?.setAttribute("href", `${shopPath}?screen=track`);
+  document.querySelector(".welcome-loyalty")?.setAttribute("href", `${shopPath}?screen=loyalty`);
   const showBrowserNotice = (settings = {}) => {
     if (!browserNotice || !isInAppBrowser || settings.show_instagram_browser_notice === false) return;
     let dismissed = false;
@@ -30,10 +35,13 @@
   try {
     const { data, error } = await db.from("store_settings").select("*").limit(1).maybeSingle();
     if (error || !data) return;
-    if (data.website_visibility === "hidden") {
+    const visibility = malaysiaWelcome ? data.malaysia_website_visibility : data.website_visibility;
+    if (visibility === "hidden") {
       const safe = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+      const hiddenTitle = malaysiaWelcome ? data.malaysia_website_hidden_title : data.website_hidden_title;
+      const hiddenMessage = malaysiaWelcome ? data.malaysia_website_hidden_message : data.website_hidden_message;
       document.body.className = "";
-      document.body.innerHTML = `<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:${safe(data.theme_primary_color || "#4B5D3A")};color:${safe(data.theme_background_color || "#F3EEE3")};text-align:center;font-family:Work Sans,Arial,sans-serif"><article style="max-width:580px"><div style="font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;opacity:.75">${safe(data.store_name || "Shizuku Lab")}</div><h1 style="font:700 clamp(42px,8vw,72px)/1.05 Fraunces,Georgia,serif;margin:18px 0">${safe(data.website_hidden_title || "We’ll be back soon.")}</h1><p style="font-size:17px;line-height:1.7;opacity:.82">${safe(data.website_hidden_message || "We’re preparing our next opening. Please check back again soon.")}</p><div style="margin-top:32px;font-size:11px;letter-spacing:.08em;opacity:.6">Powered by Slow Studio</div></article></main>`;
+      document.body.innerHTML = `<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:${safe(data.theme_primary_color || "#4B5D3A")};color:${safe(data.theme_background_color || "#F3EEE3")};text-align:center;font-family:Work Sans,Arial,sans-serif"><article style="max-width:580px"><div style="font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;opacity:.75">${safe(data.store_name || "Shizuku Lab")}</div><h1 style="font:700 clamp(42px,8vw,72px)/1.05 Fraunces,Georgia,serif;margin:18px 0">${safe(hiddenTitle || "We’ll be back soon.")}</h1><p style="font-size:17px;line-height:1.7;opacity:.82">${safe(hiddenMessage || "We’re preparing our next opening. Please check back again soon.")}</p><div style="margin-top:32px;font-size:11px;letter-spacing:.08em;opacity:.6">Powered by Slow Studio</div></article></main>`;
       return;
     }
     showBrowserNotice(data);
@@ -47,6 +55,9 @@
     const trackButton = app.querySelector(".welcome-track");
     const loyaltyButton = app.querySelector(".welcome-loyalty");
     const poweredBy = app.querySelector("#welcome-powered-by");
+    orderButton.href = shopPath;
+    if (trackButton) trackButton.href = `${shopPath}?screen=track`;
+    if (loyaltyButton) loyaltyButton.href = `${shopPath}?screen=loyalty`;
     ["zen","korean","editorial","retro","threed","sakura","coastal","cocoa","matcha_modern","japanese_paper","strawberry_milk","midnight_studio","nordic_cafe","studio_grid"].forEach((name) => app.classList.toggle(`theme-${name}`, (data.ordering_theme || data.system_theme || "zen") === name));
     app.style.fontFamily = fontStacks[data.welcome_body_font] || fontStacks.work_sans;
     title.style.fontFamily = fontStacks[data.welcome_title_font] || fontStacks.fraunces;
