@@ -15,7 +15,7 @@
     document.getElementById('account').innerHTML=`${esc(data.user.email)} <button id="logout">Sign out</button>`;
     document.getElementById('logout').onclick=async()=>{await client.auth.signOut();location.reload();};
     const accepted=await client.rpc('accept_slow_studio_hbb_invitation');
-    if(accepted.error) {app.textContent='Your account access could not be verified.';return notice(accepted.error.message);}
+    if(accepted.error) {login();return notice('Please sign in again with your email and password to verify this session.');}
     // RLS, not the URL, decides which workspace the current user can access.
     if(!workspaceId){
       const result=await client.from('slow_studio_workspaces').select('id,name,country_code').order('name');
