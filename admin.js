@@ -3,7 +3,7 @@
 const ADMIN_WORKSPACE_MARKET = new URLSearchParams(window.location.search).get("market") === "MY" || /\/(workspace\/shizuku-lab-my|demo\/malaysia)(?:\/|$)/i.test(window.location.pathname) ? "MY" : "SG";
 const ADMIN_CUSTOMER_SHOP_URL = window.SLOW_STUDIO_DEMO_MODE
   ? (ADMIN_WORKSPACE_MARKET === "MY" ? "/demo/malaysia/shop" : "/demo/singapore/shop")
-  : (ADMIN_WORKSPACE_MARKET === "MY" ? "/shop/shizuku-lab-my" : "/shop/shizuku-lab-sg");
+  : (ADMIN_WORKSPACE_MARKET === "MY" ? "/shop/shizuku-lab-my" : "https://shizuku-lab-order.vercel.app/shop/shizuku-lab-sg");
 
 const astate = {
   unlocked: false,
@@ -1203,6 +1203,7 @@ async function loginWithPassword() {
     email: String(astate.loginEmail || "").trim().toLowerCase(),
     password: astate.loginPassword,
   });
+  astate.loginPassword = "";
   astate.loginMessage = error
     ? "That Gmail or password is not correct. Please try again."
     : "Signed in.";
@@ -1954,10 +1955,10 @@ function renderLogin() {
     <div class="overlay-card" style="max-width:340px;margin:0 auto;">
       <div class="display overlay-title">Shop access</div>
       <div class="overlay-sub">Sign in with your authorised email and your own password.</div>
-      <input type="email" placeholder="tinghuioh29@gmail.com" value="${escapeHtml(astate.loginEmail)}"
+      <input type="email" autocomplete="off" placeholder="tinghuioh29@gmail.com" value="${escapeHtml(astate.loginEmail)}"
         oninput="astate.loginEmail=this.value; astate.loginOtpSent=false; astate.loginOtpCode=''; astate.loginMessage='';"
         style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
-      <input type="password" autocomplete="current-password" placeholder="Password" oninput="astate.loginPassword=this.value;" onkeydown="if(event.key==='Enter') loginWithPassword();" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
+      <input type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="Password" oninput="astate.loginPassword=this.value;" onkeydown="if(event.key==='Enter') loginWithPassword();" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #E1D9C8;margin-bottom:10px;font-size:15px;">
       ${astate.loginMessage ? `<div class="hint" style="text-align:left;line-height:1.45;margin:0 0 10px;">${escapeHtml(astate.loginMessage)}</div>` : ""}
       <div class="btn-row">
         <a href="index.html" style="flex:1;"><button class="btn-secondary" style="width:100%;">Cancel</button></a>
