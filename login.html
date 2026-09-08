@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Slow Studio</title>
+
+  <link
+    rel="stylesheet"
+    href="rotary-auth.css"
+  />
+</head>
+
+<body>
+
+  <main class="slow-auth">
+
+    <!-- BRAND -->
+    <header class="slow-auth__brand">
+
+      <div class="slow-auth__logo">
+        S
+      </div>
+
+      <p class="slow-auth__eyebrow">
+        SLOW STUDIO
+      </p>
+
+      <h1>
+        byslowstudio
+      </h1>
+
+      <p class="slow-auth__tagline">
+        small businesses.<br />
+        a calmer way.
+      </p>
+
+    </header>
+
+
+
+    <!-- ROTARY -->
+    <section
+      class="slow-auth__selector"
+      id="authSelector"
+    >
+
+      <button
+        class="slow-auth__option slow-auth__option--create"
+        id="createOption"
+        type="button"
+      >
+        CREATE ACCOUNT
+      </button>
+
+
+      <div class="slow-auth__rotary-area">
+
+        <div
+          class="slow-auth__ticks"
+          id="rotaryTicks"
+          aria-hidden="true"
+        ></div>
+
+        <button
+          class="slow-auth__knob"
+          id="rotaryKnob"
+          type="button"
+
+          aria-label="Turn left to create account or right to log in"
+        >
+
+          <span
+            class="slow-auth__indicator"
+          ></span>
+
+        </button>
+
+
+        <p
+          class="slow-auth__helper"
+          id="rotaryHelper"
+        >
+          TURN TO BEGIN
+        </p>
+
+
+        <button
+          class="slow-auth__continue"
+          id="continueButton"
+          type="button"
+          hidden
+        >
+          CONTINUE
+        </button>
+
+      </div>
+
+
+      <button
+        class="slow-auth__option slow-auth__option--login"
+        id="loginOption"
+        type="button"
+      >
+        LOG IN
+      </button>
+
+    </section>
+
+
+
+    <!-- CREATE ACCOUNT -->
+    <section
+      class="slow-auth__panel"
+      id="createPanel"
+      hidden
+    >
+
+      <button
+        class="slow-auth__back"
+        data-auth-back
+        type="button"
+      >
+        ← Back
+      </button>
+
+
+      <p class="slow-auth__panel-label">
+        JOIN YOUR TEAM
+      </p>
+
+      <h2>
+        Create account
+      </h2>
+
+      <p class="slow-auth__description">
+        Use the email your business administrator invited.
+      </p>
+
+
+      <form
+        id="createAccountForm"
+        novalidate
+      >
+
+        <label>
+          Email
+        </label>
+
+        <input
+          id="createEmail"
+          type="email"
+          autocomplete="email"
+          placeholder="you@email.com"
+          required
+        />
+
+
+        <label>
+          Password
+        </label>
+
+        <input
+          id="createPassword"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Create a password"
+          required
+        />
+
+
+        <label>
+          Confirm password
+        </label>
+
+        <input
+          id="createPasswordConfirm"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Repeat password"
+          required
+        />
+
+
+        <button
+          class="slow-auth__primary"
+          type="submit"
+        >
+          Create Account
+        </button>
+
+      </form>
+
+
+      <p
+        class="slow-auth__status"
+        id="createStatus"
+        aria-live="polite"
+      ></p>
+
+    </section>
+
+
+
+    <!-- LOG IN -->
+    <section
+      class="slow-auth__panel"
+      id="loginPanel"
+      hidden
+    >
+
+      <button
+        class="slow-auth__back"
+        data-auth-back
+        type="button"
+      >
+        ← Back
+      </button>
+
+
+      <p class="slow-auth__panel-label">
+        SLOW STUDIO
+      </p>
+
+      <h2>
+        Welcome back
+      </h2>
+
+      <p class="slow-auth__description">
+        Sign in to your workspace.
+      </p>
+
+
+      <form
+        id="loginForm"
+        novalidate
+      >
+
+        <label>
+          Email
+        </label>
+
+        <input
+          id="loginEmail"
+          type="email"
+          autocomplete="email"
+          placeholder="you@email.com"
+          required
+        />
+
+
+        <label>
+          Password
+        </label>
+
+        <input
+          id="loginPassword"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Your password"
+          required
+        />
+
+
+        <button
+          class="slow-auth__primary"
+          type="submit"
+        >
+          Log In
+        </button>
+
+      </form>
+
+
+      <p
+        class="slow-auth__status"
+        id="loginStatus"
+        aria-live="polite"
+      ></p>
+
+    </section>
+
+
+  </main>
+
+
+  <!--
+    Load your existing Supabase client BEFORE rotary-auth.js.
+
+    Example:
+
+    <script src="supabase-config.js"></script>
+  -->
+
+  <script src="rotary-auth.js"></script>
+
+</body>
+</html>
